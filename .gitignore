@@ -1,0 +1,26 @@
+# Dipendenze e build
+node_modules/
+dist/
+build/
+cache/
+artifacts/
+typechain-types/
+coverage/
+
+# Segreti e configurazione locale: mai nel repository
+.env
+.env.*
+*.pem
+*.key
+
+# Circuiti ZK: file generati (le chiavi di prova non si versionano)
+circuits/build/
+*.zkey
+*.ptau
+*.wtns
+
+# Sistema e editor
+.DS_Store
+.vscode/
+.idea/
+*.log
