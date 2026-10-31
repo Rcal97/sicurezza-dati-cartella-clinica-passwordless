@@ -12,7 +12,7 @@ Sulla blockchain finiscono solo hash, indirizzi e prove. I dati clinici restano 
 
 ## Struttura
 
-- `contracts/` smart contract Solidity (Hardhat, OpenZeppelin)
+- `blockchain/` smart contract Solidity (Hardhat, OpenZeppelin)
 - `backend/` server Node.js con TypeScript
 - `frontend/` interfaccia web con WebAuthn
 - `circuits/` circuiti circom per gli ZKP
