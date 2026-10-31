@@ -24,3 +24,9 @@ circuits/build/
 .vscode/
 .idea/
 *.log
+
+# Configurazione per assistenti AI generata dai modelli di progetto
+.agents/
+.claude
+AGENTS.md
+CLAUDE.md
