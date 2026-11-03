@@ -35,3 +35,11 @@ export function takePending(username: string): PendingRegistration | undefined {
   if (!entry || entry.expiresAt < Date.now()) return undefined;
   return entry;
 }
+
+// Un ID di credenziale deve appartenere a un solo utente.
+export function credentialExists(credentialID: string): boolean {
+  for (const user of users.values()) {
+    if (user.credentials.some((c) => c.id === credentialID)) return true;
+  }
+  return false;
+}
