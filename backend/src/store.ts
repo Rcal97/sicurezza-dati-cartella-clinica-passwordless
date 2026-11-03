@@ -43,3 +43,17 @@ export function credentialExists(credentialID: string): boolean {
   }
   return false;
 }
+
+// Challenge in attesa per il login, anch'esse monouso e a scadenza.
+const pendingLogin = new Map<string, { challenge: string; expiresAt: number }>();
+
+export function saveLoginChallenge(username: string, challenge: string, ttlMs: number): void {
+  pendingLogin.set(username, { challenge, expiresAt: Date.now() + ttlMs });
+}
+
+export function takeLoginChallenge(username: string): string | undefined {
+  const entry = pendingLogin.get(username);
+  pendingLogin.delete(username);
+  if (!entry || entry.expiresAt < Date.now()) return undefined;
+  return entry.challenge;
+}

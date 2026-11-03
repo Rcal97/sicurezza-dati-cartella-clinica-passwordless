@@ -1,4 +1,5 @@
 import express from "express";
+import { authRouter } from "./routes/authenticate.js";
 import { webauthnRouter } from "./routes/webauthn.js";
 
 const app = express();
@@ -12,6 +13,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/webauthn", webauthnRouter);
+app.use("/webauthn", authRouter);
 
 app.listen(PORT, "127.0.0.1", () => {
   console.log(`Backend in ascolto su http://localhost:${PORT}`);

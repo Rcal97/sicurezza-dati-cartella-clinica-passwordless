@@ -10,7 +10,7 @@ import { credentialExists, getUser, saveUser, savePending, takePending } from ".
 
 export const webauthnRouter = Router();
 
-const USERNAME = /^[a-z0-9._-]{3,32}$/;
+export const USERNAME = /^[a-z0-9._-]{3,32}$/;
 
 webauthnRouter.post("/register/options", async (req, res) => {
   const username = req.body?.username;
