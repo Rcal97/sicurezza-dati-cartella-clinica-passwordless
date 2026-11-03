@@ -1,5 +1,6 @@
 import express from "express";
 import { authRouter } from "./routes/authenticate.js";
+import { sessionRouter } from "./routes/session.js";
 import { webauthnRouter } from "./routes/webauthn.js";
 
 // L'app è separata dall'avvio del server, così i test possono usarla direttamente.
@@ -14,3 +15,4 @@ app.get("/health", (_req, res) => {
 
 app.use("/webauthn", webauthnRouter);
 app.use("/webauthn", authRouter);
+app.use("/session", sessionRouter);

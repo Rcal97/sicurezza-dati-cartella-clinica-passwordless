@@ -5,6 +5,7 @@ import {
   type AuthenticationResponseJSON,
 } from "@simplewebauthn/server";
 import { config } from "../config.js";
+import { SESSION_COOKIE, createSession } from "../sessions.js";
 import { getUser, saveLoginChallenge, takeLoginChallenge } from "../store.js";
 import { USERNAME } from "./webauthn.js";
 
@@ -74,5 +75,14 @@ authRouter.post("/authenticate/verify", async (req, res) => {
 
   // Salviamo il nuovo signCount: un clone che riusa un valore vecchio verrà rifiutato.
   credential.counter = verification.authenticationInfo.newCounter;
+
+  // Login riuscito: un token nuovo a ogni accesso (niente session fixation).
+  const token = createSession(username);
+  res.cookie(SESSION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: config.secureCookies,
+    path: "/",
+  });
   res.json({ verified: true });
 });
