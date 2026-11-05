@@ -1,7 +1,7 @@
 import { createHash, generateKeyPairSync, randomBytes, sign, type KeyObject } from "node:crypto";
 import { isoBase64URL, isoCBOR } from "@simplewebauthn/server/helpers";
 
-// Autenticatore FIDO2 simulato in software: genera una coppia di chiavi ES256 (P-256)
+// Autenticatore FIDO2 simulato in software: genera una coppia di chiavi ES256 o ML-DSA-44
 // e costruisce le risposte che un browser invierebbe al server. Serve solo per i test.
 
 const sha256 = (data: Uint8Array): Buffer => createHash("sha256").update(data).digest();
@@ -13,13 +13,30 @@ export const FLAG_UP = 0x01;
 export const FLAG_UV = 0x04;
 export const FLAG_AT = 0x40;
 
+// Algoritmi supportati: ES256 (ECDSA su P-256, classico) e ML-DSA-44 (FIPS 204, post-quantistico).
+export type Algorithm = "ES256" | "ML-DSA-44";
+
 export class SoftAuthenticator {
   readonly credentialId = randomBytes(16);
   counter = 0;
   private readonly privateKey: KeyObject;
   private readonly cosePublicKey: Uint8Array;
 
-  constructor() {
+  constructor(readonly algorithm: Algorithm = "ES256") {
+    if (algorithm === "ML-DSA-44") {
+      const { privateKey, publicKey } = generateKeyPairSync("ml-dsa-44");
+      this.privateKey = privateKey;
+      const jwk = publicKey.export({ format: "jwk" }) as { pub: string };
+      // Chiave pubblica COSE (RFC 9964): kty=AKP, alg=ML-DSA-44 (-48), pub = chiave pubblica grezza.
+      this.cosePublicKey = isoCBOR.encode(
+        new Map<number, number | Uint8Array>([
+          [1, 7],
+          [3, -48],
+          [-1, isoBase64URL.toBuffer(jwk.pub)],
+        ]),
+      );
+      return;
+    }
     const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
     this.privateKey = privateKey;
     const jwk = publicKey.export({ format: "jwk" });
@@ -77,8 +94,10 @@ export class SoftAuthenticator {
       JSON.stringify({ type: "webauthn.get", challenge: options.challenge, origin, crossOrigin: false }),
     );
     const authData = this.authenticatorData(options.rpId!, FLAG_UP | FLAG_UV);
-    // Firma ECDSA su authenticatorData || SHA-256(clientDataJSON), come da specifica WebAuthn.
-    const signature = sign("sha256", Buffer.concat([authData, sha256(clientDataJSON)]), this.privateKey);
+    // Firma su authenticatorData || SHA-256(clientDataJSON), come da specifica WebAuthn.
+    // ECDSA usa SHA-256; ML-DSA firma direttamente il messaggio (per questo l'hash è null).
+    const signedData = Buffer.concat([authData, sha256(clientDataJSON)]);
+    const signature = sign(this.algorithm === "ES256" ? "sha256" : null, signedData, this.privateKey);
     return {
       id: this.id,
       rawId: this.id,
