@@ -1,0 +1,21 @@
+# MongoDB per lo sviluppo locale: dati off-chain del backend (utenti, credenziali FIDO2, sessioni).
+services:
+  mongo:
+    image: mongo:8.2
+    container_name: cartella-mongo
+    restart: unless-stopped
+    # Raggiungibile solo dal PC stesso, mai dalla rete esterna.
+    ports:
+      - "127.0.0.1:27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_APP_DB: ${MONGO_APP_DB}
+      MONGO_APP_USER: ${MONGO_APP_USER}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD}
+    volumes:
+      - mongo-data:/data/db
+      - ./infra/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+
+volumes:
+  mongo-data:

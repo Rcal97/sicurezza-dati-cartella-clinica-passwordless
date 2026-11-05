@@ -30,3 +30,4 @@ circuits/build/
 .claude
 AGENTS.md
 CLAUDE.md
+!.env.example
