@@ -2,7 +2,8 @@ import { after, before, describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
-import { app } from "../src/app.js";
+import { createApp } from "../src/app.js";
+import { MemoryStore } from "../src/models/memoryStore.js";
 import { config } from "../src/config.js";
 import { SoftAuthenticator } from "./softAuthenticator.js";
 
@@ -10,7 +11,7 @@ let server: Server;
 let baseUrl: string;
 
 before(async () => {
-  server = app.listen(0);
+  server = createApp(new MemoryStore()).listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });

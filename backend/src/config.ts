@@ -9,3 +9,15 @@ export const config = {
   // In produzione il cookie viaggia solo su HTTPS.
   secureCookies: process.env.NODE_ENV === "production",
 } as const;
+
+// Stringa di connessione costruita dalle variabili del file .env (mai scritta nel codice).
+export function mongoUrl(): string {
+  const { MONGO_APP_USER, MONGO_APP_PASSWORD, MONGO_APP_DB } = process.env;
+  if (!MONGO_APP_USER || !MONGO_APP_PASSWORD || !MONGO_APP_DB) {
+    throw new Error("Variabili MONGO_APP_* mancanti: controlla il file .env");
+  }
+  const user = encodeURIComponent(MONGO_APP_USER);
+  const password = encodeURIComponent(MONGO_APP_PASSWORD);
+  const host = process.env.MONGO_HOST ?? "127.0.0.1:27017";
+  return `mongodb://${user}:${password}@${host}/${MONGO_APP_DB}?authSource=${MONGO_APP_DB}`;
+}

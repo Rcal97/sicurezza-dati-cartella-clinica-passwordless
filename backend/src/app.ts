@@ -1,18 +1,20 @@
-import express from "express";
-import { authRouter } from "./routes/authenticate.js";
-import { sessionRouter } from "./routes/session.js";
-import { webauthnRouter } from "./routes/webauthn.js";
+import express, { type Express } from "express";
+import type { Store } from "./models/store.js";
+import { sessionRoutes } from "./routes/session.js";
+import { webauthnRoutes } from "./routes/webauthn.js";
 
-// L'app è separata dall'avvio del server, così i test possono usarla direttamente.
-export const app = express();
+// Crea l'applicazione con il Model ricevuto: MongoStore nel server, MemoryStore nei test.
+export function createApp(store: Store): Express {
+  const app = express();
 
-app.disable("x-powered-by");
-app.use(express.json({ limit: "100kb" }));
+  app.disable("x-powered-by");
+  app.use(express.json({ limit: "100kb" }));
 
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok" });
-});
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok" });
+  });
 
-app.use("/webauthn", webauthnRouter);
-app.use("/webauthn", authRouter);
-app.use("/session", sessionRouter);
+  app.use("/webauthn", webauthnRoutes(store));
+  app.use("/session", sessionRoutes(store));
+  return app;
+}

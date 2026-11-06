@@ -1,16 +1,13 @@
 import { Router } from "express";
-import { config } from "../config.js";
-import { SESSION_COOKIE, destroySession, readSessionCookie, requireSession } from "../sessions.js";
+import { sessionController } from "../controllers/session.js";
+import { requireSession } from "../middleware/session.js";
+import type { Store } from "../models/store.js";
 
-export const sessionRouter = Router();
+export function sessionRoutes(store: Store): Router {
+  const router = Router();
+  const session = sessionController(store);
 
-sessionRouter.get("/me", requireSession, (_req, res) => {
-  res.json({ username: res.locals.username });
-});
-
-sessionRouter.post("/logout", (req, res) => {
-  const token = readSessionCookie(req);
-  if (token) destroySession(token);
-  res.clearCookie(SESSION_COOKIE, { httpOnly: true, sameSite: "strict", secure: config.secureCookies, path: "/" });
-  res.json({ loggedOut: true });
-});
+  router.get("/me", requireSession(store), session.me);
+  router.post("/logout", session.logout);
+  return router;
+}

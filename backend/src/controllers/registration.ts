@@ -1,0 +1,85 @@
+import type { Request, Response } from "express";
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  type RegistrationResponseJSON,
+} from "@simplewebauthn/server";
+import { isoBase64URL } from "@simplewebauthn/server/helpers";
+import { config } from "../config.js";
+import type { Store } from "../models/store.js";
+
+export const USERNAME = /^[a-z0-9._-]{3,32}$/;
+
+// Controller della registrazione di una passkey.
+export function registrationController(store: Store) {
+  return {
+    async options(req: Request, res: Response): Promise<void> {
+      const username = req.body?.username;
+      if (typeof username !== "string" || !USERNAME.test(username)) {
+        res.status(400).json({ error: "username non valido" });
+        return;
+      }
+
+      const user = await store.getUser(username);
+      const options = await generateRegistrationOptions({
+        rpName: config.rpName,
+        rpID: config.rpID,
+        userName: username,
+        userID: user ? isoBase64URL.toBuffer(user.webauthnUserID) : undefined,
+        attestationType: "none",
+        excludeCredentials: user?.credentials.map((c) => ({ id: c.id, transports: c.transports })) ?? [],
+        authenticatorSelection: { residentKey: "preferred", userVerification: "required" },
+      });
+
+      await store.savePendingRegistration(
+        username,
+        { challenge: options.challenge, webauthnUserID: options.user.id },
+        config.challengeTtlMs,
+      );
+      res.json(options);
+    },
+
+    async verify(req: Request, res: Response): Promise<void> {
+      const username = req.body?.username;
+      const response = req.body?.response;
+      if (typeof username !== "string" || !USERNAME.test(username) || typeof response !== "object" || response === null) {
+        res.status(400).json({ error: "richiesta non valida" });
+        return;
+      }
+
+      // La challenge viene consumata subito: anche un tentativo fallito la invalida.
+      const pending = await store.takePendingRegistration(username);
+      if (!pending) {
+        res.status(400).json({ error: "challenge assente o scaduta" });
+        return;
+      }
+
+      let verification;
+      try {
+        verification = await verifyRegistrationResponse({
+          response: response as RegistrationResponseJSON,
+          expectedChallenge: pending.challenge,
+          expectedOrigin: config.origin,
+          expectedRPID: config.rpID,
+          requireUserVerification: true,
+        });
+      } catch (err) {
+        console.warn(`Registrazione rifiutata per ${username}: ${(err as Error).message}`);
+        res.status(400).json({ error: "registrazione non valida" });
+        return;
+      }
+
+      if (!verification.verified) {
+        res.status(400).json({ error: "registrazione non valida" });
+        return;
+      }
+
+      const result = await store.addCredential(username, pending.webauthnUserID, verification.registrationInfo.credential);
+      if (result === "duplicate") {
+        res.status(409).json({ error: "credenziale già registrata" });
+        return;
+      }
+      res.json({ verified: true });
+    },
+  };
+}
