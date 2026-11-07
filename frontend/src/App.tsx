@@ -22,6 +22,7 @@ function descrivi(err: unknown): string {
 
 export default function App() {
   const [username, setUsername] = useState("");
+  const [invito, setInvito] = useState("");
   const [utente, setUtente] = useState<string | null>(null);
   const [messaggio, setMessaggio] = useState<Messaggio>(null);
   const [inCorso, setInCorso] = useState(false);
@@ -43,13 +44,29 @@ export default function App() {
     }
   }
 
+  // Registrazione di una passkey: con un codice d'invito (prima volta) oppure,
+  // da utente autenticato, per aggiungere un altro dispositivo al proprio account.
+  async function registraPasskey(nome: string, invitation?: string) {
+    const optionsJSON = await api.post<PublicKeyCredentialCreationOptionsJSON>("/webauthn/register/options", {
+      username: nome,
+      invitation,
+    });
+    // Il browser chiede all'autenticatore di creare la passkey (impronta, volto o PIN).
+    const response = await startRegistration({ optionsJSON });
+    await api.post("/webauthn/register/verify", { username: nome, invitation, response });
+  }
+
   const registra = () =>
     esegui(async () => {
-      const optionsJSON = await api.post<PublicKeyCredentialCreationOptionsJSON>("/webauthn/register/options", { username });
-      // Il browser chiede all'autenticatore di creare la passkey (impronta, volto o PIN).
-      const response = await startRegistration({ optionsJSON });
-      await api.post("/webauthn/register/verify", { username, response });
+      await registraPasskey(username, invito);
+      setInvito("");
       setMessaggio({ tipo: "ok", testo: "Passkey registrata. Ora puoi accedere." });
+    });
+
+  const aggiungi = () =>
+    esegui(async () => {
+      await registraPasskey(utente!);
+      setMessaggio({ tipo: "ok", testo: "Nuova passkey aggiunta al tuo account." });
     });
 
   const accedi = () =>
@@ -85,9 +102,14 @@ export default function App() {
           <p>
             Accesso effettuato come <strong>{utente}</strong>.
           </p>
-          <button onClick={esci} disabled={inCorso}>
-            Esci
-          </button>
+          <div className="azioni">
+            <button onClick={esci} disabled={inCorso}>
+              Esci
+            </button>
+            <button className="secondario" onClick={aggiungi} disabled={inCorso}>
+              Aggiungi un'altra passkey
+            </button>
+          </div>
         </>
       ) : (
         <>
@@ -100,11 +122,19 @@ export default function App() {
             autoComplete="username webauthn"
             placeholder="mario.rossi"
           />
+          <label htmlFor="invito">Codice d'invito</label>
+          <input
+            id="invito"
+            value={invito}
+            onChange={(e) => setInvito(e.target.value.trim())}
+            autoComplete="off"
+            placeholder="solo per la prima registrazione"
+          />
           <div className="azioni">
             <button onClick={accedi} disabled={inCorso || username.length < 3}>
               Accedi
             </button>
-            <button className="secondario" onClick={registra} disabled={inCorso || username.length < 3}>
+            <button className="secondario" onClick={registra} disabled={inCorso || username.length < 3 || invito.length === 0}>
               Registra una passkey
             </button>
           </div>

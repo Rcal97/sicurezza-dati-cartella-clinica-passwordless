@@ -4,14 +4,16 @@ import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { createApp } from "../src/app.js";
 import { MemoryStore } from "../src/models/memoryStore.js";
+import { invite } from "./helpers.js";
 import { config } from "../src/config.js";
 import { SoftAuthenticator } from "./softAuthenticator.js";
 
+const store = new MemoryStore();
 let server: Server;
 let baseUrl: string;
 
 before(async () => {
-  server = createApp(new MemoryStore()).listen(0);
+  server = createApp(store).listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
@@ -30,8 +32,9 @@ async function call(method: string, path: string, body?: unknown, cookie?: strin
 // Registra un utente, fa il login e restituisce il cookie di sessione ricevuto.
 async function loginAndGetCookie(username: string) {
   const auth = new SoftAuthenticator();
-  const regOptions = await call("POST", "/webauthn/register/options", { username });
-  await call("POST", "/webauthn/register/verify", { username, response: auth.register(regOptions.body, config.origin) });
+  const invitation = await invite(store, username);
+  const regOptions = await call("POST", "/webauthn/register/options", { username, invitation });
+  await call("POST", "/webauthn/register/verify", { username, invitation, response: auth.register(regOptions.body, config.origin) });
   const options = await call("POST", "/webauthn/authenticate/options", { username });
   const res = await call("POST", "/webauthn/authenticate/verify", {
     username,

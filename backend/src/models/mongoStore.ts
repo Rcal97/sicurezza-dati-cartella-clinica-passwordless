@@ -24,6 +24,11 @@ interface SessionDoc {
   username: string;
   expiresAt: Date;
 }
+interface InvitationDoc {
+  _id: string; // hash SHA-256 del codice d'invito
+  username: string;
+  expiresAt: Date;
+}
 
 const DUPLICATE_KEY = 11000;
 
@@ -33,6 +38,7 @@ export class MongoStore implements Store {
     private readonly users: Collection<UserDoc>,
     private readonly challenges: Collection<ChallengeDoc>,
     private readonly sessions: Collection<SessionDoc>,
+    private readonly invitations: Collection<InvitationDoc>,
   ) {}
 
   static async connect(url: string): Promise<MongoStore> {
@@ -44,6 +50,7 @@ export class MongoStore implements Store {
       db.collection<UserDoc>("users"),
       db.collection<ChallengeDoc>("challenges"),
       db.collection<SessionDoc>("sessions"),
+      db.collection<InvitationDoc>("invitations"),
     );
     await store.createIndexes();
     return store;
@@ -58,6 +65,7 @@ export class MongoStore implements Store {
     // Indici TTL: MongoDB cancella da solo challenge e sessioni scadute.
     await this.challenges.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await this.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    await this.invitations.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
   }
 
   async getUser(username: string): Promise<User | null> {
@@ -133,6 +141,20 @@ export class MongoStore implements Store {
     const doc = await this.challenges.findOneAndDelete({ _id: `login:${username}` });
     if (!doc || doc.expiresAt.getTime() < Date.now()) return null;
     return doc.challenge;
+  }
+
+  async createInvitation(codeHash: string, username: string, ttlMs: number): Promise<void> {
+    await this.invitations.insertOne({ _id: codeHash, username, expiresAt: new Date(Date.now() + ttlMs) });
+  }
+
+  async hasInvitation(codeHash: string, username: string): Promise<boolean> {
+    const count = await this.invitations.countDocuments({ _id: codeHash, username, expiresAt: { $gt: new Date() } });
+    return count === 1;
+  }
+
+  async takeInvitation(codeHash: string, username: string): Promise<boolean> {
+    const doc = await this.invitations.findOneAndDelete({ _id: codeHash, username, expiresAt: { $gt: new Date() } });
+    return doc !== null;
   }
 
   async createSession(tokenHash: string, username: string, idleMs: number): Promise<void> {

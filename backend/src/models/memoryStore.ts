@@ -7,6 +7,7 @@ export class MemoryStore implements Store {
   private readonly registrations = new Map<string, PendingRegistration & { expiresAt: number }>();
   private readonly logins = new Map<string, { challenge: string; expiresAt: number }>();
   private readonly sessions = new Map<string, { username: string; expiresAt: number }>();
+  private readonly invitations = new Map<string, { username: string; expiresAt: number }>();
 
   async getUser(username: string): Promise<User | null> {
     return this.users.get(username) ?? null;
@@ -47,6 +48,21 @@ export class MemoryStore implements Store {
     this.logins.delete(username);
     if (!entry || entry.expiresAt < Date.now()) return null;
     return entry.challenge;
+  }
+
+  async createInvitation(codeHash: string, username: string, ttlMs: number): Promise<void> {
+    this.invitations.set(codeHash, { username, expiresAt: Date.now() + ttlMs });
+  }
+
+  async hasInvitation(codeHash: string, username: string): Promise<boolean> {
+    const entry = this.invitations.get(codeHash);
+    return entry !== undefined && entry.username === username && entry.expiresAt >= Date.now();
+  }
+
+  async takeInvitation(codeHash: string, username: string): Promise<boolean> {
+    const valid = await this.hasInvitation(codeHash, username);
+    if (valid) this.invitations.delete(codeHash);
+    return valid;
   }
 
   async createSession(tokenHash: string, username: string, idleMs: number): Promise<void> {

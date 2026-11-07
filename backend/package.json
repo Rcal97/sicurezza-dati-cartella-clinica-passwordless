@@ -7,7 +7,8 @@
     "test": "node --import tsx --test --test-reporter=spec test/*.test.ts",
     "dev": "node --env-file=../.env --import tsx --watch src/server.ts",
     "typecheck": "tsc --noEmit",
-    "test:mongo": "node --env-file=../.env --import tsx --test --test-reporter=spec test/mongo/*.test.ts"
+    "test:mongo": "node --env-file=../.env --import tsx --test --test-reporter=spec test/mongo/*.test.ts",
+    "invito": "node --env-file=../.env --import tsx src/scripts/invite.ts"
   },
   "keywords": [],
   "author": "",

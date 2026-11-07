@@ -27,6 +27,13 @@ export interface Store {
   saveLoginChallenge(username: string, challenge: string, ttlMs: number): Promise<void>;
   takeLoginChallenge(username: string): Promise<string | null>;
 
+  // Inviti alla registrazione, rilasciati dopo l'identificazione dell'utente (identity proofing).
+  // Sono legati a uno username, monouso e indicizzati dall'hash del codice.
+  createInvitation(codeHash: string, username: string, ttlMs: number): Promise<void>;
+  hasInvitation(codeHash: string, username: string): Promise<boolean>;
+  // Consuma l'invito in modo atomico: restituisce true una sola volta.
+  takeInvitation(codeHash: string, username: string): Promise<boolean>;
+
   // Sessioni indicizzate dall'hash del token, mai dal token in chiaro.
   createSession(tokenHash: string, username: string, idleMs: number): Promise<void>;
   // Restituisce l'utente e rinnova la scadenza; null se la sessione non esiste o è scaduta.

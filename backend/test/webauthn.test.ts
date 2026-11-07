@@ -4,14 +4,16 @@ import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { createApp } from "../src/app.js";
 import { MemoryStore } from "../src/models/memoryStore.js";
+import { invite } from "./helpers.js";
 import { config } from "../src/config.js";
 import { FLAG_AT, FLAG_UP, SoftAuthenticator } from "./softAuthenticator.js";
 
+const store = new MemoryStore();
 let server: Server;
 let baseUrl: string;
 
 before(async () => {
-  server = createApp(new MemoryStore()).listen(0);
+  server = createApp(store).listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}/webauthn`;
 });
@@ -30,8 +32,9 @@ async function post(path: string, body: unknown) {
 }
 
 async function register(username: string, auth: SoftAuthenticator, origin = config.origin, flags?: number) {
-  const options = await post("/register/options", { username });
-  return post("/register/verify", { username, response: auth.register(options.body, origin, flags) });
+  const invitation = await invite(store, username);
+  const options = await post("/register/options", { username, invitation });
+  return post("/register/verify", { username, invitation, response: auth.register(options.body, origin, flags) });
 }
 
 async function login(username: string, auth: SoftAuthenticator, origin = config.origin) {

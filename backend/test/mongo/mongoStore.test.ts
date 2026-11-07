@@ -7,6 +7,7 @@ import { MongoClient } from "mongodb";
 import { createApp } from "../../src/app.js";
 import { config, mongoUrl } from "../../src/config.js";
 import { MongoStore } from "../../src/models/mongoStore.js";
+import { invite } from "../helpers.js";
 import { SoftAuthenticator } from "../softAuthenticator.js";
 
 // Test di integrazione: richiedono MongoDB acceso (docker compose up -d) e il file .env.
@@ -28,6 +29,7 @@ after(async () => {
   await db.collection("users").deleteMany({ _id: prefix } as never);
   await db.collection("sessions").deleteMany({ username: prefix });
   await db.collection("challenges").deleteMany({ _id: { $regex: `:it\\.${run}\\.` } } as never);
+  await db.collection("invitations").deleteMany({ username: prefix });
   await admin.close();
   await store.close();
 });
@@ -46,8 +48,9 @@ async function call(url: string, path: string, body?: unknown, cookie?: string) 
 }
 
 async function registerAndLogin(url: string, username: string, auth: SoftAuthenticator) {
-  const reg = await call(url, "/webauthn/register/options", { username });
-  await call(url, "/webauthn/register/verify", { username, response: auth.register(reg.body, config.origin) });
+  const invitation = await invite(store, username);
+  const reg = await call(url, "/webauthn/register/options", { username, invitation });
+  await call(url, "/webauthn/register/verify", { username, invitation, response: auth.register(reg.body, config.origin) });
   const opt = await call(url, "/webauthn/authenticate/options", { username });
   const res = await call(url, "/webauthn/authenticate/verify", { username, response: auth.authenticate(opt.body, config.origin) });
   return { status: res.status, token: res.setCookie.split(";")[0].replace("sid=", "") };
@@ -126,14 +129,20 @@ describe("MongoStore (MongoDB reale)", () => {
     assert.equal(results.filter((r) => r !== null).length, 1);
   });
 
+  it("un invito non può essere usato da due registrazioni parallele", async () => {
+    const hash = createHash("sha256").update(await invite(store, name("ivo"))).digest("hex");
+    const results = await Promise.all([store.takeInvitation(hash, name("ivo")), store.takeInvitation(hash, name("ivo"))]);
+    assert.equal(results.filter(Boolean).length, 1);
+  });
+
   it("una sessione scaduta viene rifiutata", async () => {
     await store.createSession(`hash-${run}`, name("ugo"), 1);
     await new Promise((resolve) => setTimeout(resolve, 20));
     assert.equal(await store.touchSession(`hash-${run}`, config.sessionIdleMs), null);
   });
 
-  it("challenge e sessioni hanno un indice TTL", async () => {
-    for (const collection of ["challenges", "sessions"]) {
+  it("challenge, sessioni e inviti hanno un indice TTL", async () => {
+    for (const collection of ["challenges", "sessions", "invitations"]) {
       const indexes = await admin.db().collection(collection).indexes();
       assert.ok(indexes.some((i) => i.key.expiresAt === 1 && i.expireAfterSeconds === 0), collection);
     }

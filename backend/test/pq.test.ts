@@ -4,14 +4,16 @@ import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { createApp } from "../src/app.js";
 import { MemoryStore } from "../src/models/memoryStore.js";
+import { invite } from "./helpers.js";
 import { config } from "../src/config.js";
 import { SoftAuthenticator } from "./softAuthenticator.js";
 
+const store = new MemoryStore();
 let server: Server;
 let baseUrl: string;
 
 before(async () => {
-  server = createApp(new MemoryStore()).listen(0);
+  server = createApp(store).listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}/webauthn`;
 });
@@ -31,14 +33,15 @@ async function post(path: string, body: unknown) {
 
 describe("FIDO2 post-quantistico (ML-DSA-44, FIPS 204)", () => {
   it("il server offre ML-DSA-44 come algoritmo preferito", async () => {
-    const options = await post("/register/options", { username: "pq.preferito" });
+    const options = await post("/register/options", { username: "pq.preferito", invitation: await invite(store, "pq.preferito") });
     assert.equal(options.body.pubKeyCredParams[0].alg, -48);
   });
 
   it("registra una passkey ML-DSA-44 e poi effettua il login", async () => {
     const auth = new SoftAuthenticator("ML-DSA-44");
-    const regOptions = await post("/register/options", { username: "pq.utente" });
-    const reg = await post("/register/verify", { username: "pq.utente", response: auth.register(regOptions.body, config.origin) });
+    const invitation = await invite(store, "pq.utente");
+    const regOptions = await post("/register/options", { username: "pq.utente", invitation });
+    const reg = await post("/register/verify", { username: "pq.utente", invitation, response: auth.register(regOptions.body, config.origin) });
     assert.equal(reg.status, 200);
 
     const options = await post("/authenticate/options", { username: "pq.utente" });
@@ -48,8 +51,9 @@ describe("FIDO2 post-quantistico (ML-DSA-44, FIPS 204)", () => {
 
   it("una firma ML-DSA prodotta da un'altra chiave viene rifiutata", async () => {
     const auth = new SoftAuthenticator("ML-DSA-44");
-    const regOptions = await post("/register/options", { username: "pq.vittima" });
-    await post("/register/verify", { username: "pq.vittima", response: auth.register(regOptions.body, config.origin) });
+    const invitation = await invite(store, "pq.vittima");
+    const regOptions = await post("/register/options", { username: "pq.vittima", invitation });
+    await post("/register/verify", { username: "pq.vittima", invitation, response: auth.register(regOptions.body, config.origin) });
 
     // L'attaccante conosce l'ID della credenziale ma non la chiave privata.
     const attacker = new SoftAuthenticator("ML-DSA-44");

@@ -26,11 +26,16 @@ export function readSessionCookie(req: Request): string | undefined {
   return undefined;
 }
 
+// Utente della sessione allegata alla richiesta, oppure null.
+export async function sessionUser(store: Store, req: Request): Promise<string | null> {
+  const token = readSessionCookie(req);
+  return token ? store.touchSession(hashToken(token), config.sessionIdleMs) : null;
+}
+
 // Middleware: lascia passare solo le richieste con una sessione valida (complete mediation).
 export function requireSession(store: Store) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const token = readSessionCookie(req);
-    const username = token ? await store.touchSession(hashToken(token), config.sessionIdleMs) : null;
+    const username = await sessionUser(store, req);
     if (!username) {
       res.status(401).json({ error: "sessione assente o scaduta" });
       return;
