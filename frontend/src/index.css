@@ -1,0 +1,80 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #14262b;
+  background: #f4f6f5;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.scheda {
+  width: min(380px, 100% - 32px);
+  padding: 32px;
+  background: #fff;
+  border: 1px solid #d5ddda;
+  border-radius: 12px;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 1.5rem;
+  color: #0f2a33;
+}
+
+label {
+  display: block;
+  margin: 16px 0 4px;
+  font-weight: 600;
+}
+
+input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  font: inherit;
+  border: 1px solid #b8c4c0;
+  border-radius: 8px;
+}
+
+.azioni {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+button {
+  padding: 10px 16px;
+  font: inherit;
+  color: #fff;
+  background: #17695d;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+button.secondario {
+  color: #17695d;
+  background: transparent;
+  border: 1px solid #17695d;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.nota {
+  color: #5b6b70;
+}
+
+.ok {
+  color: #17695d;
+}
+
+.errore {
+  color: #b42318;
+}
