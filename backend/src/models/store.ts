@@ -14,6 +14,40 @@ export interface PendingRegistration {
   webauthnUserID: string;
 }
 
+// Ruolo e indirizzo blockchain di un utente, assegnati dopo l'identificazione.
+// Per un paziente l'indirizzo è uno pseudonimo usato solo per il registro dei consensi.
+export type Role = "doctor" | "patient";
+export interface Profile {
+  role: Role;
+  address: string;
+}
+
+// Dettagli di un accesso, conservati off-chain: sulla catena va solo la loro impronta.
+export type AccessDetails =
+  | {
+      kind: "ordinary";
+      requester: string;
+      patient: string;
+      purpose: string;
+      outcome: "granted" | "denied";
+      at: string;
+      nonce: string;
+    }
+  | {
+      kind: "emergency";
+      requester: string;
+      patient: string;
+      reason: string;
+      at: string;
+      nonce: string;
+    };
+
+export interface AccessLogEntry {
+  entryId: string; // identificativo della voce sul registro di audit on-chain
+  recordHash: string;
+  details: AccessDetails;
+}
+
 export interface Store {
   getUser(username: string): Promise<User | null>;
   // Aggiunge una credenziale all'utente (creandolo se serve).
@@ -39,6 +73,13 @@ export interface Store {
   // Restituisce l'utente e rinnova la scadenza; null se la sessione non esiste o è scaduta.
   touchSession(tokenHash: string, idleMs: number): Promise<string | null>;
   deleteSession(tokenHash: string): Promise<void>;
+
+  // Profili: un indirizzo blockchain appartiene a un solo utente ("duplicate" altrimenti).
+  setProfile(username: string, profile: Profile): Promise<"ok" | "duplicate">;
+  getProfile(username: string): Promise<Profile | null>;
+
+  // Copia off-chain dei dettagli degli accessi registrati sulla catena.
+  addAccessLog(entry: AccessLogEntry): Promise<void>;
 
   close(): Promise<void>;
 }

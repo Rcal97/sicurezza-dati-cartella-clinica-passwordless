@@ -22,6 +22,13 @@ export interface EmergencyEntry {
   recordHash: string;
 }
 
+// Rifiuto da parte di un contratto, con il nome dell'errore personalizzato (es. ConsentNotValid).
+export class LedgerRevert extends Error {
+  constructor(readonly errorName: string) {
+    super(`Transazione rifiutata dal contratto: ${errorName}`);
+  }
+}
+
 export interface Ledger {
   isConsentValid(patient: string, grantee: string, purpose: Purpose): Promise<boolean>;
   // Restituiscono l'identificativo della voce d'audit, dopo che la transazione è in un blocco.

@@ -1,5 +1,5 @@
 import type { WebAuthnCredential } from "@simplewebauthn/server";
-import type { PendingRegistration, Store, User } from "./store.js";
+import type { AccessLogEntry, PendingRegistration, Profile, Store, User } from "./store.js";
 
 // Implementazione in memoria: usata dai test, non conserva nulla tra un avvio e l'altro.
 export class MemoryStore implements Store {
@@ -8,6 +8,9 @@ export class MemoryStore implements Store {
   private readonly logins = new Map<string, { challenge: string; expiresAt: number }>();
   private readonly sessions = new Map<string, { username: string; expiresAt: number }>();
   private readonly invitations = new Map<string, { username: string; expiresAt: number }>();
+  private readonly profiles = new Map<string, Profile>();
+  // Pubblico per permettere ai test di controllarne il contenuto.
+  readonly accessLog: AccessLogEntry[] = [];
 
   async getUser(username: string): Promise<User | null> {
     return this.users.get(username) ?? null;
@@ -82,6 +85,24 @@ export class MemoryStore implements Store {
 
   async deleteSession(tokenHash: string): Promise<void> {
     this.sessions.delete(tokenHash);
+  }
+
+  async setProfile(username: string, profile: Profile) {
+    for (const [other, p] of this.profiles) {
+      if (other !== username && p.address.toLowerCase() === profile.address.toLowerCase()) {
+        return "duplicate" as const;
+      }
+    }
+    this.profiles.set(username, { ...profile });
+    return "ok" as const;
+  }
+
+  async getProfile(username: string): Promise<Profile | null> {
+    return this.profiles.get(username) ?? null;
+  }
+
+  async addAccessLog(entry: AccessLogEntry): Promise<void> {
+    this.accessLog.push(entry);
   }
 
   async close(): Promise<void> {}

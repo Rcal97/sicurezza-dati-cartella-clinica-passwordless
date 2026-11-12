@@ -4,8 +4,10 @@ import { createHash, randomBytes } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { MongoClient } from "mongodb";
+import { Wallet } from "ethers";
 import { createApp } from "../../src/app.js";
 import { config, mongoUrl } from "../../src/config.js";
+import { MemoryLedger } from "../../src/models/memoryLedger.js";
 import { MongoStore } from "../../src/models/mongoStore.js";
 import { invite } from "../helpers.js";
 import { SoftAuthenticator } from "../softAuthenticator.js";
@@ -30,12 +32,14 @@ after(async () => {
   await db.collection("sessions").deleteMany({ username: prefix });
   await db.collection("challenges").deleteMany({ _id: { $regex: `:it\\.${run}\\.` } } as never);
   await db.collection("invitations").deleteMany({ username: prefix });
+  await db.collection("profiles").deleteMany({ _id: prefix } as never);
+  await db.collection("access_log").deleteMany({ "details.requester": prefix });
   await admin.close();
   await store.close();
 });
 
 async function start(s: MongoStore): Promise<{ server: Server; url: string }> {
-  const server = createApp(s).listen(0);
+  const server = createApp(s, new MemoryLedger()).listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   return { server, url: `http://127.0.0.1:${(server.address() as AddressInfo).port}` };
 }
@@ -146,5 +150,34 @@ describe("MongoStore (MongoDB reale)", () => {
       const indexes = await admin.db().collection(collection).indexes();
       assert.ok(indexes.some((i) => i.key.expiresAt === 1 && i.expireAfterSeconds === 0), collection);
     }
+  });
+
+  it("un indirizzo blockchain appartiene a un solo utente", async () => {
+    const address = Wallet.createRandom().address;
+    assert.equal(await store.setProfile(name("medico"), { role: "doctor", address }), "ok");
+    // Stesso indirizzo scritto in minuscolo: per Ethereum è lo stesso account.
+    const copy = { role: "patient" as const, address: address.toLowerCase() };
+    assert.equal(await store.setProfile(name("altro"), copy), "duplicate");
+    assert.equal((await store.getProfile(name("medico")))?.role, "doctor");
+    assert.equal(await store.getProfile(name("altro")), null);
+  });
+
+  it("i dettagli di un accesso vengono conservati off-chain", async () => {
+    const entry = {
+      entryId: "1",
+      recordHash: "0x" + "ab".repeat(32),
+      details: {
+        kind: "ordinary" as const,
+        requester: name("medico"),
+        patient: name("paziente"),
+        purpose: "care",
+        outcome: "denied" as const,
+        at: new Date().toISOString(),
+        nonce: "00",
+      },
+    };
+    await store.addAccessLog(entry);
+    const doc = await admin.db().collection("access_log").findOne({ "details.requester": name("medico") });
+    assert.equal(doc?.recordHash, entry.recordHash);
   });
 });

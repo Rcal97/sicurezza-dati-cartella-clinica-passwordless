@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test:mongo": "node --env-file=../.env --import tsx --test --test-reporter=spec test/mongo/*.test.ts",
     "invito": "node --env-file=../.env --import tsx src/scripts/invite.ts",
-    "test:chain": "node --env-file=../.env --import tsx --test --test-reporter=spec test/chain/*.test.ts"
+    "test:chain": "node --env-file=../.env --import tsx --test --test-reporter=spec test/chain/*.test.ts",
+    "profilo": "node --env-file=../.env --import tsx src/scripts/profile.ts"
   },
   "keywords": [],
   "author": "",

@@ -5,7 +5,7 @@ import {
   type ContractTransactionResponse,
   type TransactionReceipt,
 } from "ethers";
-import type { AccessEntry, EmergencyEntry, Ledger, Purpose } from "./ledger.js";
+import { LedgerRevert, type AccessEntry, type EmergencyEntry, type Ledger, type Purpose } from "./ledger.js";
 
 // Solo le funzioni, gli eventi e gli errori che il backend usa (gli enum viaggiano come uint8).
 const CONSENT_ABI = [
@@ -22,13 +22,6 @@ const AUDIT_ABI = [
   "error MissingReason()",
   "error AccessControlUnauthorizedAccount(address account, bytes32 neededRole)",
 ];
-
-// Rifiuto da parte di un contratto, con il nome dell'errore personalizzato (es. ConsentNotValid).
-export class LedgerRevert extends Error {
-  constructor(readonly errorName: string) {
-    super(`Transazione rifiutata dal contratto: ${errorName}`);
-  }
-}
 
 export interface LedgerConfig {
   rpcUrl: string;

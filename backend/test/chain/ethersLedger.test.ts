@@ -2,8 +2,8 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { Contract, JsonRpcProvider, Wallet, id, ZeroHash } from "ethers";
 import { ledgerConfig } from "../../src/config.js";
-import { EthersLedger, LedgerRevert } from "../../src/models/ethersLedger.js";
-import { Outcome, Purpose } from "../../src/models/ledger.js";
+import { EthersLedger } from "../../src/models/ethersLedger.js";
+import { LedgerRevert, Outcome, Purpose } from "../../src/models/ledger.js";
 
 // Test di integrazione: richiedono il nodo locale acceso (npm run node), il deploy
 // (npm run deploy:local) e il file .env. Ogni esecuzione usa medici con indirizzi nuovi.

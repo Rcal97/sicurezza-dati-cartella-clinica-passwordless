@@ -1,6 +1,6 @@
 import { Binary, MongoClient, MongoServerError, type Collection, type Db } from "mongodb";
 import type { WebAuthnCredential } from "@simplewebauthn/server";
-import type { PendingRegistration, Store, User } from "./store.js";
+import type { AccessLogEntry, PendingRegistration, Profile, Role, Store, User } from "./store.js";
 
 interface CredentialDoc {
   id: string;
@@ -30,6 +30,12 @@ interface InvitationDoc {
   expiresAt: Date;
 }
 
+interface ProfileDoc {
+  _id: string; // username
+  role: Role;
+  address: string; // in minuscolo, per il controllo di unicità
+}
+
 const DUPLICATE_KEY = 11000;
 
 export class MongoStore implements Store {
@@ -39,6 +45,8 @@ export class MongoStore implements Store {
     private readonly challenges: Collection<ChallengeDoc>,
     private readonly sessions: Collection<SessionDoc>,
     private readonly invitations: Collection<InvitationDoc>,
+    private readonly profiles: Collection<ProfileDoc>,
+    private readonly accessLog: Collection<AccessLogEntry>,
   ) {}
 
   static async connect(url: string): Promise<MongoStore> {
@@ -51,6 +59,8 @@ export class MongoStore implements Store {
       db.collection<ChallengeDoc>("challenges"),
       db.collection<SessionDoc>("sessions"),
       db.collection<InvitationDoc>("invitations"),
+      db.collection<ProfileDoc>("profiles"),
+      db.collection<AccessLogEntry>("access_log"),
     );
     await store.createIndexes();
     return store;
@@ -66,6 +76,8 @@ export class MongoStore implements Store {
     await this.challenges.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await this.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await this.invitations.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    // Un indirizzo blockchain appartiene a un solo utente.
+    await this.profiles.createIndex({ address: 1 }, { unique: true });
   }
 
   async getUser(username: string): Promise<User | null> {
@@ -172,6 +184,30 @@ export class MongoStore implements Store {
 
   async deleteSession(tokenHash: string): Promise<void> {
     await this.sessions.deleteOne({ _id: tokenHash });
+  }
+
+  async setProfile(username: string, profile: Profile) {
+    try {
+      await this.profiles.updateOne(
+        { _id: username },
+        { $set: { role: profile.role, address: profile.address.toLowerCase() } },
+        { upsert: true },
+      );
+      return "ok" as const;
+    } catch (err) {
+      if (err instanceof MongoServerError && err.code === DUPLICATE_KEY) return "duplicate" as const;
+      throw err;
+    }
+  }
+
+  async getProfile(username: string): Promise<Profile | null> {
+    const doc = await this.profiles.findOne({ _id: username });
+    return doc ? { role: doc.role, address: doc.address } : null;
+  }
+
+  async addAccessLog(entry: AccessLogEntry): Promise<void> {
+    // Copia: il driver aggiungerebbe _id all'oggetto ricevuto.
+    await this.accessLog.insertOne({ ...entry });
   }
 
   async close(): Promise<void> {
