@@ -29,3 +29,6 @@
 
 # Snapshot cheatcodes output
 /snapshots
+
+# Deploy sulla blockchain locale (si azzera a ogni riavvio del nodo)
+/ignition/deployments/chain-31337

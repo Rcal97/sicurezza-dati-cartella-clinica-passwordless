@@ -23,3 +23,18 @@ export function mongoUrl(): string {
   const host = process.env.MONGO_HOST ?? "127.0.0.1:27017";
   return `mongodb://${user}:${password}@${host}/${MONGO_APP_DB}?authSource=${MONGO_APP_DB}`;
 }
+
+// Collegamento alla blockchain: nodo, chiave del backend (ruolo RECORDER) e indirizzi dei contratti.
+export function ledgerConfig() {
+  const { CHAIN_RPC_URL, BACKEND_PRIVATE_KEY, CONSENT_REGISTRY_ADDRESS, AUDIT_LOG_ADDRESS } =
+    process.env;
+  if (!BACKEND_PRIVATE_KEY || !CONSENT_REGISTRY_ADDRESS || !AUDIT_LOG_ADDRESS) {
+    throw new Error("Variabili della blockchain mancanti: controlla il file .env");
+  }
+  return {
+    rpcUrl: CHAIN_RPC_URL ?? "http://127.0.0.1:8545",
+    privateKey: BACKEND_PRIVATE_KEY,
+    consentRegistry: CONSENT_REGISTRY_ADDRESS,
+    auditLog: AUDIT_LOG_ADDRESS,
+  };
+}
