@@ -1,0 +1,1056 @@
+operazione,variante,indice,gas
+deploy,ConsentRegistry,0,1898130
+deploy,AuditLog,0,1830213
+ruoli,grantRole RECORDER,0,52243
+ruoli,grantRole PAUSER,0,52243
+ruoli,grantRole EMERGENCY,0,52243
+grantConsent,prima concessione,0,49967
+grantConsent,rinnovo (stessa finalità),0,32867
+grantConsent,seconda finalità,0,49979
+recordAccess,concesso,0,59008
+recordAccess,negato,0,34839
+recordEmergencyAccess,d'emergenza,0,36781
+revokeConsent,revoca,0,24718
+grantConsent,prima concessione,1,49967
+grantConsent,rinnovo (stessa finalità),1,32867
+grantConsent,seconda finalità,1,49979
+recordAccess,concesso,1,41908
+recordAccess,negato,1,34839
+recordEmergencyAccess,d'emergenza,1,36781
+revokeConsent,revoca,1,24718
+grantConsent,prima concessione,2,49967
+grantConsent,rinnovo (stessa finalità),2,32867
+grantConsent,seconda finalità,2,49979
+recordAccess,concesso,2,41896
+recordAccess,negato,2,34827
+recordEmergencyAccess,d'emergenza,2,36769
+revokeConsent,revoca,2,24718
+grantConsent,prima concessione,3,49967
+grantConsent,rinnovo (stessa finalità),3,32867
+grantConsent,seconda finalità,3,49979
+recordAccess,concesso,3,41908
+recordAccess,negato,3,34839
+recordEmergencyAccess,d'emergenza,3,36781
+revokeConsent,revoca,3,24718
+grantConsent,prima concessione,4,49967
+grantConsent,rinnovo (stessa finalità),4,32867
+grantConsent,seconda finalità,4,49979
+recordAccess,concesso,4,41908
+recordAccess,negato,4,34839
+recordEmergencyAccess,d'emergenza,4,36781
+revokeConsent,revoca,4,24718
+grantConsent,prima concessione,5,49967
+grantConsent,rinnovo (stessa finalità),5,32867
+grantConsent,seconda finalità,5,49979
+recordAccess,concesso,5,41908
+recordAccess,negato,5,34839
+recordEmergencyAccess,d'emergenza,5,36781
+revokeConsent,revoca,5,24718
+grantConsent,prima concessione,6,49967
+grantConsent,rinnovo (stessa finalità),6,32867
+grantConsent,seconda finalità,6,49979
+recordAccess,concesso,6,41896
+recordAccess,negato,6,34827
+recordEmergencyAccess,d'emergenza,6,36769
+revokeConsent,revoca,6,24718
+grantConsent,prima concessione,7,49967
+grantConsent,rinnovo (stessa finalità),7,32867
+grantConsent,seconda finalità,7,49979
+recordAccess,concesso,7,41908
+recordAccess,negato,7,34839
+recordEmergencyAccess,d'emergenza,7,36781
+revokeConsent,revoca,7,24718
+grantConsent,prima concessione,8,49967
+grantConsent,rinnovo (stessa finalità),8,32867
+grantConsent,seconda finalità,8,49979
+recordAccess,concesso,8,41908
+recordAccess,negato,8,34839
+recordEmergencyAccess,d'emergenza,8,36781
+revokeConsent,revoca,8,24718
+grantConsent,prima concessione,9,49967
+grantConsent,rinnovo (stessa finalità),9,32867
+grantConsent,seconda finalità,9,49979
+recordAccess,concesso,9,41908
+recordAccess,negato,9,34839
+recordEmergencyAccess,d'emergenza,9,36781
+revokeConsent,revoca,9,24718
+grantConsent,prima concessione,10,49967
+grantConsent,rinnovo (stessa finalità),10,32867
+grantConsent,seconda finalità,10,49979
+recordAccess,concesso,10,41908
+recordAccess,negato,10,34839
+recordEmergencyAccess,d'emergenza,10,36781
+revokeConsent,revoca,10,24718
+grantConsent,prima concessione,11,49967
+grantConsent,rinnovo (stessa finalità),11,32867
+grantConsent,seconda finalità,11,49979
+recordAccess,concesso,11,41908
+recordAccess,negato,11,34839
+recordEmergencyAccess,d'emergenza,11,36781
+revokeConsent,revoca,11,24718
+grantConsent,prima concessione,12,49967
+grantConsent,rinnovo (stessa finalità),12,32867
+grantConsent,seconda finalità,12,49979
+recordAccess,concesso,12,41908
+recordAccess,negato,12,34839
+recordEmergencyAccess,d'emergenza,12,36781
+revokeConsent,revoca,12,24718
+grantConsent,prima concessione,13,49967
+grantConsent,rinnovo (stessa finalità),13,32867
+grantConsent,seconda finalità,13,49979
+recordAccess,concesso,13,41908
+recordAccess,negato,13,34839
+recordEmergencyAccess,d'emergenza,13,36781
+revokeConsent,revoca,13,24718
+grantConsent,prima concessione,14,49967
+grantConsent,rinnovo (stessa finalità),14,32867
+grantConsent,seconda finalità,14,49979
+recordAccess,concesso,14,41908
+recordAccess,negato,14,34839
+recordEmergencyAccess,d'emergenza,14,36781
+revokeConsent,revoca,14,24718
+grantConsent,prima concessione,15,49967
+grantConsent,rinnovo (stessa finalità),15,32867
+grantConsent,seconda finalità,15,49979
+recordAccess,concesso,15,41908
+recordAccess,negato,15,34839
+recordEmergencyAccess,d'emergenza,15,36781
+revokeConsent,revoca,15,24718
+grantConsent,prima concessione,16,49967
+grantConsent,rinnovo (stessa finalità),16,32867
+grantConsent,seconda finalità,16,49979
+recordAccess,concesso,16,41908
+recordAccess,negato,16,34839
+recordEmergencyAccess,d'emergenza,16,36781
+revokeConsent,revoca,16,24718
+grantConsent,prima concessione,17,49967
+grantConsent,rinnovo (stessa finalità),17,32867
+grantConsent,seconda finalità,17,49979
+recordAccess,concesso,17,41908
+recordAccess,negato,17,34839
+recordEmergencyAccess,d'emergenza,17,36781
+revokeConsent,revoca,17,24718
+grantConsent,prima concessione,18,49967
+grantConsent,rinnovo (stessa finalità),18,32867
+grantConsent,seconda finalità,18,49979
+recordAccess,concesso,18,41896
+recordAccess,negato,18,34827
+recordEmergencyAccess,d'emergenza,18,36769
+revokeConsent,revoca,18,24718
+grantConsent,prima concessione,19,49967
+grantConsent,rinnovo (stessa finalità),19,32867
+grantConsent,seconda finalità,19,49967
+recordAccess,concesso,19,41908
+recordAccess,negato,19,34839
+recordEmergencyAccess,d'emergenza,19,36781
+revokeConsent,revoca,19,24718
+grantConsent,prima concessione,20,49967
+grantConsent,rinnovo (stessa finalità),20,32867
+grantConsent,seconda finalità,20,49979
+recordAccess,concesso,20,41908
+recordAccess,negato,20,34839
+recordEmergencyAccess,d'emergenza,20,36781
+revokeConsent,revoca,20,24718
+grantConsent,prima concessione,21,49967
+grantConsent,rinnovo (stessa finalità),21,32867
+grantConsent,seconda finalità,21,49979
+recordAccess,concesso,21,41908
+recordAccess,negato,21,34839
+recordEmergencyAccess,d'emergenza,21,36781
+revokeConsent,revoca,21,24718
+grantConsent,prima concessione,22,49967
+grantConsent,rinnovo (stessa finalità),22,32867
+grantConsent,seconda finalità,22,49979
+recordAccess,concesso,22,41908
+recordAccess,negato,22,34839
+recordEmergencyAccess,d'emergenza,22,36781
+revokeConsent,revoca,22,24718
+grantConsent,prima concessione,23,49967
+grantConsent,rinnovo (stessa finalità),23,32867
+grantConsent,seconda finalità,23,49979
+recordAccess,concesso,23,41908
+recordAccess,negato,23,34839
+recordEmergencyAccess,d'emergenza,23,36781
+revokeConsent,revoca,23,24718
+grantConsent,prima concessione,24,49967
+grantConsent,rinnovo (stessa finalità),24,32867
+grantConsent,seconda finalità,24,49979
+recordAccess,concesso,24,41908
+recordAccess,negato,24,34839
+recordEmergencyAccess,d'emergenza,24,36781
+revokeConsent,revoca,24,24718
+grantConsent,prima concessione,25,49967
+grantConsent,rinnovo (stessa finalità),25,32867
+grantConsent,seconda finalità,25,49979
+recordAccess,concesso,25,41908
+recordAccess,negato,25,34839
+recordEmergencyAccess,d'emergenza,25,36781
+revokeConsent,revoca,25,24718
+grantConsent,prima concessione,26,49967
+grantConsent,rinnovo (stessa finalità),26,32867
+grantConsent,seconda finalità,26,49979
+recordAccess,concesso,26,41908
+recordAccess,negato,26,34839
+recordEmergencyAccess,d'emergenza,26,36781
+revokeConsent,revoca,26,24718
+grantConsent,prima concessione,27,49967
+grantConsent,rinnovo (stessa finalità),27,32867
+grantConsent,seconda finalità,27,49979
+recordAccess,concesso,27,41908
+recordAccess,negato,27,34839
+recordEmergencyAccess,d'emergenza,27,36781
+revokeConsent,revoca,27,24718
+grantConsent,prima concessione,28,49967
+grantConsent,rinnovo (stessa finalità),28,32867
+grantConsent,seconda finalità,28,49979
+recordAccess,concesso,28,41908
+recordAccess,negato,28,34839
+recordEmergencyAccess,d'emergenza,28,36781
+revokeConsent,revoca,28,24718
+grantConsent,prima concessione,29,49967
+grantConsent,rinnovo (stessa finalità),29,32867
+grantConsent,seconda finalità,29,49979
+recordAccess,concesso,29,41896
+recordAccess,negato,29,34827
+recordEmergencyAccess,d'emergenza,29,36769
+revokeConsent,revoca,29,24718
+grantConsent,prima concessione,30,49967
+grantConsent,rinnovo (stessa finalità),30,32867
+grantConsent,seconda finalità,30,49979
+recordAccess,concesso,30,41908
+recordAccess,negato,30,34839
+recordEmergencyAccess,d'emergenza,30,36781
+revokeConsent,revoca,30,24718
+grantConsent,prima concessione,31,49967
+grantConsent,rinnovo (stessa finalità),31,32867
+grantConsent,seconda finalità,31,49979
+recordAccess,concesso,31,41896
+recordAccess,negato,31,34827
+recordEmergencyAccess,d'emergenza,31,36769
+revokeConsent,revoca,31,24718
+grantConsent,prima concessione,32,49967
+grantConsent,rinnovo (stessa finalità),32,32867
+grantConsent,seconda finalità,32,49979
+recordAccess,concesso,32,41908
+recordAccess,negato,32,34839
+recordEmergencyAccess,d'emergenza,32,36781
+revokeConsent,revoca,32,24718
+grantConsent,prima concessione,33,49967
+grantConsent,rinnovo (stessa finalità),33,32867
+grantConsent,seconda finalità,33,49979
+recordAccess,concesso,33,41908
+recordAccess,negato,33,34839
+recordEmergencyAccess,d'emergenza,33,36781
+revokeConsent,revoca,33,24718
+grantConsent,prima concessione,34,49967
+grantConsent,rinnovo (stessa finalità),34,32867
+grantConsent,seconda finalità,34,49979
+recordAccess,concesso,34,41908
+recordAccess,negato,34,34839
+recordEmergencyAccess,d'emergenza,34,36781
+revokeConsent,revoca,34,24718
+grantConsent,prima concessione,35,49967
+grantConsent,rinnovo (stessa finalità),35,32867
+grantConsent,seconda finalità,35,49979
+recordAccess,concesso,35,41908
+recordAccess,negato,35,34839
+recordEmergencyAccess,d'emergenza,35,36781
+revokeConsent,revoca,35,24718
+grantConsent,prima concessione,36,49967
+grantConsent,rinnovo (stessa finalità),36,32867
+grantConsent,seconda finalità,36,49979
+recordAccess,concesso,36,41908
+recordAccess,negato,36,34839
+recordEmergencyAccess,d'emergenza,36,36781
+revokeConsent,revoca,36,24718
+grantConsent,prima concessione,37,49967
+grantConsent,rinnovo (stessa finalità),37,32867
+grantConsent,seconda finalità,37,49979
+recordAccess,concesso,37,41908
+recordAccess,negato,37,34839
+recordEmergencyAccess,d'emergenza,37,36781
+revokeConsent,revoca,37,24718
+grantConsent,prima concessione,38,49967
+grantConsent,rinnovo (stessa finalità),38,32867
+grantConsent,seconda finalità,38,49979
+recordAccess,concesso,38,41908
+recordAccess,negato,38,34839
+recordEmergencyAccess,d'emergenza,38,36781
+revokeConsent,revoca,38,24718
+grantConsent,prima concessione,39,49967
+grantConsent,rinnovo (stessa finalità),39,32867
+grantConsent,seconda finalità,39,49979
+recordAccess,concesso,39,41908
+recordAccess,negato,39,34839
+recordEmergencyAccess,d'emergenza,39,36781
+revokeConsent,revoca,39,24718
+grantConsent,prima concessione,40,49967
+grantConsent,rinnovo (stessa finalità),40,32867
+grantConsent,seconda finalità,40,49979
+recordAccess,concesso,40,41908
+recordAccess,negato,40,34839
+recordEmergencyAccess,d'emergenza,40,36781
+revokeConsent,revoca,40,24718
+grantConsent,prima concessione,41,49967
+grantConsent,rinnovo (stessa finalità),41,32867
+grantConsent,seconda finalità,41,49979
+recordAccess,concesso,41,41908
+recordAccess,negato,41,34839
+recordEmergencyAccess,d'emergenza,41,36781
+revokeConsent,revoca,41,24718
+grantConsent,prima concessione,42,49967
+grantConsent,rinnovo (stessa finalità),42,32867
+grantConsent,seconda finalità,42,49979
+recordAccess,concesso,42,41908
+recordAccess,negato,42,34839
+recordEmergencyAccess,d'emergenza,42,36781
+revokeConsent,revoca,42,24718
+grantConsent,prima concessione,43,49967
+grantConsent,rinnovo (stessa finalità),43,32867
+grantConsent,seconda finalità,43,49979
+recordAccess,concesso,43,41908
+recordAccess,negato,43,34839
+recordEmergencyAccess,d'emergenza,43,36781
+revokeConsent,revoca,43,24718
+grantConsent,prima concessione,44,49967
+grantConsent,rinnovo (stessa finalità),44,32867
+grantConsent,seconda finalità,44,49979
+recordAccess,concesso,44,41908
+recordAccess,negato,44,34839
+recordEmergencyAccess,d'emergenza,44,36781
+revokeConsent,revoca,44,24718
+grantConsent,prima concessione,45,49967
+grantConsent,rinnovo (stessa finalità),45,32867
+grantConsent,seconda finalità,45,49979
+recordAccess,concesso,45,41908
+recordAccess,negato,45,34839
+recordEmergencyAccess,d'emergenza,45,36781
+revokeConsent,revoca,45,24718
+grantConsent,prima concessione,46,49967
+grantConsent,rinnovo (stessa finalità),46,32867
+grantConsent,seconda finalità,46,49979
+recordAccess,concesso,46,41908
+recordAccess,negato,46,34839
+recordEmergencyAccess,d'emergenza,46,36781
+revokeConsent,revoca,46,24718
+grantConsent,prima concessione,47,49967
+grantConsent,rinnovo (stessa finalità),47,32867
+grantConsent,seconda finalità,47,49979
+recordAccess,concesso,47,41908
+recordAccess,negato,47,34839
+recordEmergencyAccess,d'emergenza,47,36781
+revokeConsent,revoca,47,24718
+grantConsent,prima concessione,48,49967
+grantConsent,rinnovo (stessa finalità),48,32867
+grantConsent,seconda finalità,48,49979
+recordAccess,concesso,48,41908
+recordAccess,negato,48,34839
+recordEmergencyAccess,d'emergenza,48,36781
+revokeConsent,revoca,48,24718
+grantConsent,prima concessione,49,49967
+grantConsent,rinnovo (stessa finalità),49,32867
+grantConsent,seconda finalità,49,49979
+recordAccess,concesso,49,41908
+recordAccess,negato,49,34839
+recordEmergencyAccess,d'emergenza,49,36781
+revokeConsent,revoca,49,24718
+grantConsent,prima concessione,50,49967
+grantConsent,rinnovo (stessa finalità),50,32867
+grantConsent,seconda finalità,50,49979
+recordAccess,concesso,50,41908
+recordAccess,negato,50,34839
+recordEmergencyAccess,d'emergenza,50,36781
+revokeConsent,revoca,50,24718
+grantConsent,prima concessione,51,49967
+grantConsent,rinnovo (stessa finalità),51,32867
+grantConsent,seconda finalità,51,49967
+recordAccess,concesso,51,41908
+recordAccess,negato,51,34839
+recordEmergencyAccess,d'emergenza,51,36781
+revokeConsent,revoca,51,24718
+grantConsent,prima concessione,52,49967
+grantConsent,rinnovo (stessa finalità),52,32867
+grantConsent,seconda finalità,52,49979
+recordAccess,concesso,52,41908
+recordAccess,negato,52,34839
+recordEmergencyAccess,d'emergenza,52,36781
+revokeConsent,revoca,52,24718
+grantConsent,prima concessione,53,49967
+grantConsent,rinnovo (stessa finalità),53,32867
+grantConsent,seconda finalità,53,49979
+recordAccess,concesso,53,41908
+recordAccess,negato,53,34839
+recordEmergencyAccess,d'emergenza,53,36781
+revokeConsent,revoca,53,24718
+grantConsent,prima concessione,54,49967
+grantConsent,rinnovo (stessa finalità),54,32867
+grantConsent,seconda finalità,54,49979
+recordAccess,concesso,54,41908
+recordAccess,negato,54,34839
+recordEmergencyAccess,d'emergenza,54,36781
+revokeConsent,revoca,54,24718
+grantConsent,prima concessione,55,49967
+grantConsent,rinnovo (stessa finalità),55,32867
+grantConsent,seconda finalità,55,49979
+recordAccess,concesso,55,41908
+recordAccess,negato,55,34839
+recordEmergencyAccess,d'emergenza,55,36781
+revokeConsent,revoca,55,24718
+grantConsent,prima concessione,56,49967
+grantConsent,rinnovo (stessa finalità),56,32867
+grantConsent,seconda finalità,56,49979
+recordAccess,concesso,56,41896
+recordAccess,negato,56,34827
+recordEmergencyAccess,d'emergenza,56,36769
+revokeConsent,revoca,56,24718
+grantConsent,prima concessione,57,49967
+grantConsent,rinnovo (stessa finalità),57,32867
+grantConsent,seconda finalità,57,49979
+recordAccess,concesso,57,41908
+recordAccess,negato,57,34839
+recordEmergencyAccess,d'emergenza,57,36781
+revokeConsent,revoca,57,24718
+grantConsent,prima concessione,58,49967
+grantConsent,rinnovo (stessa finalità),58,32867
+grantConsent,seconda finalità,58,49979
+recordAccess,concesso,58,41908
+recordAccess,negato,58,34839
+recordEmergencyAccess,d'emergenza,58,36781
+revokeConsent,revoca,58,24718
+grantConsent,prima concessione,59,49967
+grantConsent,rinnovo (stessa finalità),59,32867
+grantConsent,seconda finalità,59,49979
+recordAccess,concesso,59,41896
+recordAccess,negato,59,34827
+recordEmergencyAccess,d'emergenza,59,36769
+revokeConsent,revoca,59,24718
+grantConsent,prima concessione,60,49967
+grantConsent,rinnovo (stessa finalità),60,32867
+grantConsent,seconda finalità,60,49979
+recordAccess,concesso,60,41908
+recordAccess,negato,60,34839
+recordEmergencyAccess,d'emergenza,60,36781
+revokeConsent,revoca,60,24718
+grantConsent,prima concessione,61,49967
+grantConsent,rinnovo (stessa finalità),61,32867
+grantConsent,seconda finalità,61,49979
+recordAccess,concesso,61,41908
+recordAccess,negato,61,34839
+recordEmergencyAccess,d'emergenza,61,36781
+revokeConsent,revoca,61,24718
+grantConsent,prima concessione,62,49967
+grantConsent,rinnovo (stessa finalità),62,32867
+grantConsent,seconda finalità,62,49979
+recordAccess,concesso,62,41908
+recordAccess,negato,62,34839
+recordEmergencyAccess,d'emergenza,62,36781
+revokeConsent,revoca,62,24718
+grantConsent,prima concessione,63,49967
+grantConsent,rinnovo (stessa finalità),63,32867
+grantConsent,seconda finalità,63,49979
+recordAccess,concesso,63,41908
+recordAccess,negato,63,34839
+recordEmergencyAccess,d'emergenza,63,36781
+revokeConsent,revoca,63,24718
+grantConsent,prima concessione,64,49967
+grantConsent,rinnovo (stessa finalità),64,32867
+grantConsent,seconda finalità,64,49979
+recordAccess,concesso,64,41908
+recordAccess,negato,64,34839
+recordEmergencyAccess,d'emergenza,64,36781
+revokeConsent,revoca,64,24718
+grantConsent,prima concessione,65,49967
+grantConsent,rinnovo (stessa finalità),65,32867
+grantConsent,seconda finalità,65,49979
+recordAccess,concesso,65,41908
+recordAccess,negato,65,34839
+recordEmergencyAccess,d'emergenza,65,36781
+revokeConsent,revoca,65,24718
+grantConsent,prima concessione,66,49967
+grantConsent,rinnovo (stessa finalità),66,32867
+grantConsent,seconda finalità,66,49979
+recordAccess,concesso,66,41908
+recordAccess,negato,66,34839
+recordEmergencyAccess,d'emergenza,66,36781
+revokeConsent,revoca,66,24718
+grantConsent,prima concessione,67,49967
+grantConsent,rinnovo (stessa finalità),67,32867
+grantConsent,seconda finalità,67,49979
+recordAccess,concesso,67,41908
+recordAccess,negato,67,34839
+recordEmergencyAccess,d'emergenza,67,36781
+revokeConsent,revoca,67,24718
+grantConsent,prima concessione,68,49967
+grantConsent,rinnovo (stessa finalità),68,32867
+grantConsent,seconda finalità,68,49979
+recordAccess,concesso,68,41908
+recordAccess,negato,68,34839
+recordEmergencyAccess,d'emergenza,68,36781
+revokeConsent,revoca,68,24718
+grantConsent,prima concessione,69,49967
+grantConsent,rinnovo (stessa finalità),69,32867
+grantConsent,seconda finalità,69,49979
+recordAccess,concesso,69,41896
+recordAccess,negato,69,34827
+recordEmergencyAccess,d'emergenza,69,36769
+revokeConsent,revoca,69,24718
+grantConsent,prima concessione,70,49967
+grantConsent,rinnovo (stessa finalità),70,32867
+grantConsent,seconda finalità,70,49979
+recordAccess,concesso,70,41908
+recordAccess,negato,70,34839
+recordEmergencyAccess,d'emergenza,70,36781
+revokeConsent,revoca,70,24718
+grantConsent,prima concessione,71,49967
+grantConsent,rinnovo (stessa finalità),71,32867
+grantConsent,seconda finalità,71,49979
+recordAccess,concesso,71,41908
+recordAccess,negato,71,34839
+recordEmergencyAccess,d'emergenza,71,36781
+revokeConsent,revoca,71,24718
+grantConsent,prima concessione,72,49967
+grantConsent,rinnovo (stessa finalità),72,32867
+grantConsent,seconda finalità,72,49979
+recordAccess,concesso,72,41908
+recordAccess,negato,72,34839
+recordEmergencyAccess,d'emergenza,72,36781
+revokeConsent,revoca,72,24718
+grantConsent,prima concessione,73,49967
+grantConsent,rinnovo (stessa finalità),73,32867
+grantConsent,seconda finalità,73,49979
+recordAccess,concesso,73,41908
+recordAccess,negato,73,34839
+recordEmergencyAccess,d'emergenza,73,36781
+revokeConsent,revoca,73,24718
+grantConsent,prima concessione,74,49967
+grantConsent,rinnovo (stessa finalità),74,32867
+grantConsent,seconda finalità,74,49979
+recordAccess,concesso,74,41908
+recordAccess,negato,74,34839
+recordEmergencyAccess,d'emergenza,74,36781
+revokeConsent,revoca,74,24718
+grantConsent,prima concessione,75,49967
+grantConsent,rinnovo (stessa finalità),75,32867
+grantConsent,seconda finalità,75,49979
+recordAccess,concesso,75,41908
+recordAccess,negato,75,34839
+recordEmergencyAccess,d'emergenza,75,36781
+revokeConsent,revoca,75,24718
+grantConsent,prima concessione,76,49967
+grantConsent,rinnovo (stessa finalità),76,32867
+grantConsent,seconda finalità,76,49979
+recordAccess,concesso,76,41908
+recordAccess,negato,76,34839
+recordEmergencyAccess,d'emergenza,76,36781
+revokeConsent,revoca,76,24718
+grantConsent,prima concessione,77,49967
+grantConsent,rinnovo (stessa finalità),77,32867
+grantConsent,seconda finalità,77,49979
+recordAccess,concesso,77,41908
+recordAccess,negato,77,34839
+recordEmergencyAccess,d'emergenza,77,36781
+revokeConsent,revoca,77,24718
+grantConsent,prima concessione,78,49967
+grantConsent,rinnovo (stessa finalità),78,32867
+grantConsent,seconda finalità,78,49979
+recordAccess,concesso,78,41908
+recordAccess,negato,78,34839
+recordEmergencyAccess,d'emergenza,78,36781
+revokeConsent,revoca,78,24718
+grantConsent,prima concessione,79,49967
+grantConsent,rinnovo (stessa finalità),79,32867
+grantConsent,seconda finalità,79,49979
+recordAccess,concesso,79,41908
+recordAccess,negato,79,34839
+recordEmergencyAccess,d'emergenza,79,36781
+revokeConsent,revoca,79,24718
+grantConsent,prima concessione,80,49967
+grantConsent,rinnovo (stessa finalità),80,32867
+grantConsent,seconda finalità,80,49979
+recordAccess,concesso,80,41908
+recordAccess,negato,80,34839
+recordEmergencyAccess,d'emergenza,80,36781
+revokeConsent,revoca,80,24718
+grantConsent,prima concessione,81,49967
+grantConsent,rinnovo (stessa finalità),81,32867
+grantConsent,seconda finalità,81,49979
+recordAccess,concesso,81,41896
+recordAccess,negato,81,34827
+recordEmergencyAccess,d'emergenza,81,36769
+revokeConsent,revoca,81,24718
+grantConsent,prima concessione,82,49967
+grantConsent,rinnovo (stessa finalità),82,32867
+grantConsent,seconda finalità,82,49979
+recordAccess,concesso,82,41908
+recordAccess,negato,82,34839
+recordEmergencyAccess,d'emergenza,82,36781
+revokeConsent,revoca,82,24718
+grantConsent,prima concessione,83,49967
+grantConsent,rinnovo (stessa finalità),83,32867
+grantConsent,seconda finalità,83,49967
+recordAccess,concesso,83,41908
+recordAccess,negato,83,34839
+recordEmergencyAccess,d'emergenza,83,36781
+revokeConsent,revoca,83,24718
+grantConsent,prima concessione,84,49967
+grantConsent,rinnovo (stessa finalità),84,32867
+grantConsent,seconda finalità,84,49979
+recordAccess,concesso,84,41908
+recordAccess,negato,84,34839
+recordEmergencyAccess,d'emergenza,84,36781
+revokeConsent,revoca,84,24718
+grantConsent,prima concessione,85,49967
+grantConsent,rinnovo (stessa finalità),85,32867
+grantConsent,seconda finalità,85,49979
+recordAccess,concesso,85,41908
+recordAccess,negato,85,34839
+recordEmergencyAccess,d'emergenza,85,36781
+revokeConsent,revoca,85,24718
+grantConsent,prima concessione,86,49967
+grantConsent,rinnovo (stessa finalità),86,32867
+grantConsent,seconda finalità,86,49979
+recordAccess,concesso,86,41908
+recordAccess,negato,86,34839
+recordEmergencyAccess,d'emergenza,86,36781
+revokeConsent,revoca,86,24718
+grantConsent,prima concessione,87,49967
+grantConsent,rinnovo (stessa finalità),87,32867
+grantConsent,seconda finalità,87,49979
+recordAccess,concesso,87,41908
+recordAccess,negato,87,34839
+recordEmergencyAccess,d'emergenza,87,36781
+revokeConsent,revoca,87,24718
+grantConsent,prima concessione,88,49967
+grantConsent,rinnovo (stessa finalità),88,32867
+grantConsent,seconda finalità,88,49979
+recordAccess,concesso,88,41908
+recordAccess,negato,88,34839
+recordEmergencyAccess,d'emergenza,88,36781
+revokeConsent,revoca,88,24718
+grantConsent,prima concessione,89,49967
+grantConsent,rinnovo (stessa finalità),89,32867
+grantConsent,seconda finalità,89,49979
+recordAccess,concesso,89,41908
+recordAccess,negato,89,34839
+recordEmergencyAccess,d'emergenza,89,36781
+revokeConsent,revoca,89,24718
+grantConsent,prima concessione,90,49967
+grantConsent,rinnovo (stessa finalità),90,32867
+grantConsent,seconda finalità,90,49979
+recordAccess,concesso,90,41908
+recordAccess,negato,90,34839
+recordEmergencyAccess,d'emergenza,90,36781
+revokeConsent,revoca,90,24718
+grantConsent,prima concessione,91,49967
+grantConsent,rinnovo (stessa finalità),91,32867
+grantConsent,seconda finalità,91,49979
+recordAccess,concesso,91,41896
+recordAccess,negato,91,34827
+recordEmergencyAccess,d'emergenza,91,36769
+revokeConsent,revoca,91,24718
+grantConsent,prima concessione,92,49967
+grantConsent,rinnovo (stessa finalità),92,32867
+grantConsent,seconda finalità,92,49979
+recordAccess,concesso,92,41908
+recordAccess,negato,92,34839
+recordEmergencyAccess,d'emergenza,92,36781
+revokeConsent,revoca,92,24718
+grantConsent,prima concessione,93,49967
+grantConsent,rinnovo (stessa finalità),93,32867
+grantConsent,seconda finalità,93,49979
+recordAccess,concesso,93,41896
+recordAccess,negato,93,34827
+recordEmergencyAccess,d'emergenza,93,36769
+revokeConsent,revoca,93,24718
+grantConsent,prima concessione,94,49967
+grantConsent,rinnovo (stessa finalità),94,32867
+grantConsent,seconda finalità,94,49979
+recordAccess,concesso,94,41908
+recordAccess,negato,94,34839
+recordEmergencyAccess,d'emergenza,94,36781
+revokeConsent,revoca,94,24718
+grantConsent,prima concessione,95,49967
+grantConsent,rinnovo (stessa finalità),95,32867
+grantConsent,seconda finalità,95,49979
+recordAccess,concesso,95,41908
+recordAccess,negato,95,34839
+recordEmergencyAccess,d'emergenza,95,36781
+revokeConsent,revoca,95,24718
+grantConsent,prima concessione,96,49967
+grantConsent,rinnovo (stessa finalità),96,32867
+grantConsent,seconda finalità,96,49979
+recordAccess,concesso,96,41908
+recordAccess,negato,96,34839
+recordEmergencyAccess,d'emergenza,96,36781
+revokeConsent,revoca,96,24718
+grantConsent,prima concessione,97,49967
+grantConsent,rinnovo (stessa finalità),97,32867
+grantConsent,seconda finalità,97,49979
+recordAccess,concesso,97,41908
+recordAccess,negato,97,34839
+recordEmergencyAccess,d'emergenza,97,36781
+revokeConsent,revoca,97,24718
+grantConsent,prima concessione,98,49967
+grantConsent,rinnovo (stessa finalità),98,32867
+grantConsent,seconda finalità,98,49979
+recordAccess,concesso,98,41908
+recordAccess,negato,98,34839
+recordEmergencyAccess,d'emergenza,98,36781
+revokeConsent,revoca,98,24718
+grantConsent,prima concessione,99,49967
+grantConsent,rinnovo (stessa finalità),99,32867
+grantConsent,seconda finalità,99,49979
+recordAccess,concesso,99,41908
+recordAccess,negato,99,34839
+recordEmergencyAccess,d'emergenza,99,36781
+revokeConsent,revoca,99,24718
+grantConsent,prima concessione,100,49967
+grantConsent,rinnovo (stessa finalità),100,32867
+grantConsent,seconda finalità,100,49979
+recordAccess,concesso,100,41908
+recordAccess,negato,100,34839
+recordEmergencyAccess,d'emergenza,100,36781
+revokeConsent,revoca,100,24718
+grantConsent,prima concessione,101,49967
+grantConsent,rinnovo (stessa finalità),101,32867
+grantConsent,seconda finalità,101,49979
+recordAccess,concesso,101,41908
+recordAccess,negato,101,34839
+recordEmergencyAccess,d'emergenza,101,36781
+revokeConsent,revoca,101,24718
+grantConsent,prima concessione,102,49967
+grantConsent,rinnovo (stessa finalità),102,32867
+grantConsent,seconda finalità,102,49979
+recordAccess,concesso,102,41908
+recordAccess,negato,102,34839
+recordEmergencyAccess,d'emergenza,102,36781
+revokeConsent,revoca,102,24718
+grantConsent,prima concessione,103,49967
+grantConsent,rinnovo (stessa finalità),103,32867
+grantConsent,seconda finalità,103,49979
+recordAccess,concesso,103,41908
+recordAccess,negato,103,34839
+recordEmergencyAccess,d'emergenza,103,36781
+revokeConsent,revoca,103,24718
+grantConsent,prima concessione,104,49967
+grantConsent,rinnovo (stessa finalità),104,32867
+grantConsent,seconda finalità,104,49979
+recordAccess,concesso,104,41908
+recordAccess,negato,104,34839
+recordEmergencyAccess,d'emergenza,104,36781
+revokeConsent,revoca,104,24718
+grantConsent,prima concessione,105,49967
+grantConsent,rinnovo (stessa finalità),105,32867
+grantConsent,seconda finalità,105,49979
+recordAccess,concesso,105,41896
+recordAccess,negato,105,34827
+recordEmergencyAccess,d'emergenza,105,36769
+revokeConsent,revoca,105,24718
+grantConsent,prima concessione,106,49967
+grantConsent,rinnovo (stessa finalità),106,32867
+grantConsent,seconda finalità,106,49979
+recordAccess,concesso,106,41908
+recordAccess,negato,106,34839
+recordEmergencyAccess,d'emergenza,106,36781
+revokeConsent,revoca,106,24718
+grantConsent,prima concessione,107,49967
+grantConsent,rinnovo (stessa finalità),107,32867
+grantConsent,seconda finalità,107,49979
+recordAccess,concesso,107,41908
+recordAccess,negato,107,34839
+recordEmergencyAccess,d'emergenza,107,36781
+revokeConsent,revoca,107,24718
+grantConsent,prima concessione,108,49967
+grantConsent,rinnovo (stessa finalità),108,32867
+grantConsent,seconda finalità,108,49979
+recordAccess,concesso,108,41908
+recordAccess,negato,108,34839
+recordEmergencyAccess,d'emergenza,108,36781
+revokeConsent,revoca,108,24718
+grantConsent,prima concessione,109,49967
+grantConsent,rinnovo (stessa finalità),109,32867
+grantConsent,seconda finalità,109,49979
+recordAccess,concesso,109,41908
+recordAccess,negato,109,34839
+recordEmergencyAccess,d'emergenza,109,36781
+revokeConsent,revoca,109,24718
+grantConsent,prima concessione,110,49967
+grantConsent,rinnovo (stessa finalità),110,32867
+grantConsent,seconda finalità,110,49979
+recordAccess,concesso,110,41908
+recordAccess,negato,110,34839
+recordEmergencyAccess,d'emergenza,110,36781
+revokeConsent,revoca,110,24718
+grantConsent,prima concessione,111,49967
+grantConsent,rinnovo (stessa finalità),111,32867
+grantConsent,seconda finalità,111,49979
+recordAccess,concesso,111,41908
+recordAccess,negato,111,34839
+recordEmergencyAccess,d'emergenza,111,36781
+revokeConsent,revoca,111,24718
+grantConsent,prima concessione,112,49967
+grantConsent,rinnovo (stessa finalità),112,32867
+grantConsent,seconda finalità,112,49979
+recordAccess,concesso,112,41908
+recordAccess,negato,112,34839
+recordEmergencyAccess,d'emergenza,112,36781
+revokeConsent,revoca,112,24718
+grantConsent,prima concessione,113,49967
+grantConsent,rinnovo (stessa finalità),113,32867
+grantConsent,seconda finalità,113,49979
+recordAccess,concesso,113,41908
+recordAccess,negato,113,34839
+recordEmergencyAccess,d'emergenza,113,36781
+revokeConsent,revoca,113,24718
+grantConsent,prima concessione,114,49967
+grantConsent,rinnovo (stessa finalità),114,32867
+grantConsent,seconda finalità,114,49979
+recordAccess,concesso,114,41908
+recordAccess,negato,114,34839
+recordEmergencyAccess,d'emergenza,114,36781
+revokeConsent,revoca,114,24718
+grantConsent,prima concessione,115,49967
+grantConsent,rinnovo (stessa finalità),115,32867
+grantConsent,seconda finalità,115,49967
+recordAccess,concesso,115,41908
+recordAccess,negato,115,34839
+recordEmergencyAccess,d'emergenza,115,36781
+revokeConsent,revoca,115,24718
+grantConsent,prima concessione,116,49967
+grantConsent,rinnovo (stessa finalità),116,32867
+grantConsent,seconda finalità,116,49979
+recordAccess,concesso,116,41908
+recordAccess,negato,116,34839
+recordEmergencyAccess,d'emergenza,116,36781
+revokeConsent,revoca,116,24718
+grantConsent,prima concessione,117,49967
+grantConsent,rinnovo (stessa finalità),117,32867
+grantConsent,seconda finalità,117,49979
+recordAccess,concesso,117,41908
+recordAccess,negato,117,34839
+recordEmergencyAccess,d'emergenza,117,36781
+revokeConsent,revoca,117,24718
+grantConsent,prima concessione,118,49967
+grantConsent,rinnovo (stessa finalità),118,32867
+grantConsent,seconda finalità,118,49979
+recordAccess,concesso,118,41908
+recordAccess,negato,118,34839
+recordEmergencyAccess,d'emergenza,118,36781
+revokeConsent,revoca,118,24718
+grantConsent,prima concessione,119,49967
+grantConsent,rinnovo (stessa finalità),119,32867
+grantConsent,seconda finalità,119,49979
+recordAccess,concesso,119,41908
+recordAccess,negato,119,34839
+recordEmergencyAccess,d'emergenza,119,36781
+revokeConsent,revoca,119,24718
+grantConsent,prima concessione,120,49967
+grantConsent,rinnovo (stessa finalità),120,32867
+grantConsent,seconda finalità,120,49979
+recordAccess,concesso,120,41908
+recordAccess,negato,120,34839
+recordEmergencyAccess,d'emergenza,120,36781
+revokeConsent,revoca,120,24718
+grantConsent,prima concessione,121,49967
+grantConsent,rinnovo (stessa finalità),121,32867
+grantConsent,seconda finalità,121,49979
+recordAccess,concesso,121,41908
+recordAccess,negato,121,34839
+recordEmergencyAccess,d'emergenza,121,36781
+revokeConsent,revoca,121,24718
+grantConsent,prima concessione,122,49967
+grantConsent,rinnovo (stessa finalità),122,32867
+grantConsent,seconda finalità,122,49979
+recordAccess,concesso,122,41908
+recordAccess,negato,122,34839
+recordEmergencyAccess,d'emergenza,122,36781
+revokeConsent,revoca,122,24718
+grantConsent,prima concessione,123,49967
+grantConsent,rinnovo (stessa finalità),123,32867
+grantConsent,seconda finalità,123,49979
+recordAccess,concesso,123,41908
+recordAccess,negato,123,34839
+recordEmergencyAccess,d'emergenza,123,36781
+revokeConsent,revoca,123,24718
+grantConsent,prima concessione,124,49967
+grantConsent,rinnovo (stessa finalità),124,32867
+grantConsent,seconda finalità,124,49979
+recordAccess,concesso,124,41908
+recordAccess,negato,124,34839
+recordEmergencyAccess,d'emergenza,124,36781
+revokeConsent,revoca,124,24718
+grantConsent,prima concessione,125,49967
+grantConsent,rinnovo (stessa finalità),125,32867
+grantConsent,seconda finalità,125,49979
+recordAccess,concesso,125,41908
+recordAccess,negato,125,34839
+recordEmergencyAccess,d'emergenza,125,36781
+revokeConsent,revoca,125,24718
+grantConsent,prima concessione,126,49967
+grantConsent,rinnovo (stessa finalità),126,32867
+grantConsent,seconda finalità,126,49979
+recordAccess,concesso,126,41908
+recordAccess,negato,126,34839
+recordEmergencyAccess,d'emergenza,126,36781
+revokeConsent,revoca,126,24718
+grantConsent,prima concessione,127,49967
+grantConsent,rinnovo (stessa finalità),127,32867
+grantConsent,seconda finalità,127,49979
+recordAccess,concesso,127,41908
+recordAccess,negato,127,34839
+recordEmergencyAccess,d'emergenza,127,36781
+revokeConsent,revoca,127,24718
+grantConsent,prima concessione,128,49967
+grantConsent,rinnovo (stessa finalità),128,32867
+grantConsent,seconda finalità,128,49979
+recordAccess,concesso,128,41908
+recordAccess,negato,128,34839
+recordEmergencyAccess,d'emergenza,128,36781
+revokeConsent,revoca,128,24718
+grantConsent,prima concessione,129,49967
+grantConsent,rinnovo (stessa finalità),129,32867
+grantConsent,seconda finalità,129,49979
+recordAccess,concesso,129,41908
+recordAccess,negato,129,34839
+recordEmergencyAccess,d'emergenza,129,36781
+revokeConsent,revoca,129,24718
+grantConsent,prima concessione,130,49967
+grantConsent,rinnovo (stessa finalità),130,32867
+grantConsent,seconda finalità,130,49979
+recordAccess,concesso,130,41908
+recordAccess,negato,130,34839
+recordEmergencyAccess,d'emergenza,130,36781
+revokeConsent,revoca,130,24718
+grantConsent,prima concessione,131,49967
+grantConsent,rinnovo (stessa finalità),131,32867
+grantConsent,seconda finalità,131,49979
+recordAccess,concesso,131,41908
+recordAccess,negato,131,34839
+recordEmergencyAccess,d'emergenza,131,36781
+revokeConsent,revoca,131,24718
+grantConsent,prima concessione,132,49967
+grantConsent,rinnovo (stessa finalità),132,32867
+grantConsent,seconda finalità,132,49979
+recordAccess,concesso,132,41908
+recordAccess,negato,132,34839
+recordEmergencyAccess,d'emergenza,132,36781
+revokeConsent,revoca,132,24718
+grantConsent,prima concessione,133,49967
+grantConsent,rinnovo (stessa finalità),133,32867
+grantConsent,seconda finalità,133,49979
+recordAccess,concesso,133,41896
+recordAccess,negato,133,34827
+recordEmergencyAccess,d'emergenza,133,36769
+revokeConsent,revoca,133,24718
+grantConsent,prima concessione,134,49967
+grantConsent,rinnovo (stessa finalità),134,32867
+grantConsent,seconda finalità,134,49979
+recordAccess,concesso,134,41908
+recordAccess,negato,134,34839
+recordEmergencyAccess,d'emergenza,134,36781
+revokeConsent,revoca,134,24718
+grantConsent,prima concessione,135,49967
+grantConsent,rinnovo (stessa finalità),135,32867
+grantConsent,seconda finalità,135,49979
+recordAccess,concesso,135,41908
+recordAccess,negato,135,34839
+recordEmergencyAccess,d'emergenza,135,36781
+revokeConsent,revoca,135,24718
+grantConsent,prima concessione,136,49967
+grantConsent,rinnovo (stessa finalità),136,32867
+grantConsent,seconda finalità,136,49979
+recordAccess,concesso,136,41908
+recordAccess,negato,136,34839
+recordEmergencyAccess,d'emergenza,136,36781
+revokeConsent,revoca,136,24718
+grantConsent,prima concessione,137,49967
+grantConsent,rinnovo (stessa finalità),137,32867
+grantConsent,seconda finalità,137,49979
+recordAccess,concesso,137,41908
+recordAccess,negato,137,34839
+recordEmergencyAccess,d'emergenza,137,36781
+revokeConsent,revoca,137,24718
+grantConsent,prima concessione,138,49967
+grantConsent,rinnovo (stessa finalità),138,32867
+grantConsent,seconda finalità,138,49979
+recordAccess,concesso,138,41908
+recordAccess,negato,138,34839
+recordEmergencyAccess,d'emergenza,138,36781
+revokeConsent,revoca,138,24718
+grantConsent,prima concessione,139,49967
+grantConsent,rinnovo (stessa finalità),139,32867
+grantConsent,seconda finalità,139,49979
+recordAccess,concesso,139,41908
+recordAccess,negato,139,34839
+recordEmergencyAccess,d'emergenza,139,36781
+revokeConsent,revoca,139,24718
+grantConsent,prima concessione,140,49967
+grantConsent,rinnovo (stessa finalità),140,32867
+grantConsent,seconda finalità,140,49979
+recordAccess,concesso,140,41908
+recordAccess,negato,140,34839
+recordEmergencyAccess,d'emergenza,140,36781
+revokeConsent,revoca,140,24718
+grantConsent,prima concessione,141,49967
+grantConsent,rinnovo (stessa finalità),141,32867
+grantConsent,seconda finalità,141,49979
+recordAccess,concesso,141,41908
+recordAccess,negato,141,34839
+recordEmergencyAccess,d'emergenza,141,36781
+revokeConsent,revoca,141,24718
+grantConsent,prima concessione,142,49967
+grantConsent,rinnovo (stessa finalità),142,32867
+grantConsent,seconda finalità,142,49979
+recordAccess,concesso,142,41908
+recordAccess,negato,142,34839
+recordEmergencyAccess,d'emergenza,142,36781
+revokeConsent,revoca,142,24718
+grantConsent,prima concessione,143,49967
+grantConsent,rinnovo (stessa finalità),143,32867
+grantConsent,seconda finalità,143,49979
+recordAccess,concesso,143,41908
+recordAccess,negato,143,34839
+recordEmergencyAccess,d'emergenza,143,36781
+revokeConsent,revoca,143,24718
+grantConsent,prima concessione,144,49967
+grantConsent,rinnovo (stessa finalità),144,32867
+grantConsent,seconda finalità,144,49979
+recordAccess,concesso,144,41908
+recordAccess,negato,144,34839
+recordEmergencyAccess,d'emergenza,144,36781
+revokeConsent,revoca,144,24718
+grantConsent,prima concessione,145,49967
+grantConsent,rinnovo (stessa finalità),145,32867
+grantConsent,seconda finalità,145,49979
+recordAccess,concesso,145,41908
+recordAccess,negato,145,34839
+recordEmergencyAccess,d'emergenza,145,36781
+revokeConsent,revoca,145,24718
+grantConsent,prima concessione,146,49967
+grantConsent,rinnovo (stessa finalità),146,32867
+grantConsent,seconda finalità,146,49979
+recordAccess,concesso,146,41908
+recordAccess,negato,146,34839
+recordEmergencyAccess,d'emergenza,146,36781
+revokeConsent,revoca,146,24718
+grantConsent,prima concessione,147,49967
+grantConsent,rinnovo (stessa finalità),147,32867
+grantConsent,seconda finalità,147,49967
+recordAccess,concesso,147,41908
+recordAccess,negato,147,34839
+recordEmergencyAccess,d'emergenza,147,36781
+revokeConsent,revoca,147,24718
+grantConsent,prima concessione,148,49967
+grantConsent,rinnovo (stessa finalità),148,32867
+grantConsent,seconda finalità,148,49979
+recordAccess,concesso,148,41908
+recordAccess,negato,148,34839
+recordEmergencyAccess,d'emergenza,148,36781
+revokeConsent,revoca,148,24718
+grantConsent,prima concessione,149,49967
+grantConsent,rinnovo (stessa finalità),149,32867
+grantConsent,seconda finalità,149,49979
+recordAccess,concesso,149,41908
+recordAccess,negato,149,34839
+recordEmergencyAccess,d'emergenza,149,36781
+revokeConsent,revoca,149,24718

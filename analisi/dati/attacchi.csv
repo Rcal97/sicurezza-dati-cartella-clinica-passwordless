@@ -1,0 +1,391 @@
+versione,scenario,prova,attacco_riuscito,legittimo_riuscito
+attuale,"Phishing: login da un sito clone",0,0,1
+attuale,"Phishing: login da un sito clone",1,0,1
+attuale,"Phishing: login da un sito clone",2,0,1
+attuale,"Phishing: login da un sito clone",3,0,1
+attuale,"Phishing: login da un sito clone",4,0,1
+attuale,"Phishing: login da un sito clone",5,0,1
+attuale,"Phishing: login da un sito clone",6,0,1
+attuale,"Phishing: login da un sito clone",7,0,1
+attuale,"Phishing: login da un sito clone",8,0,1
+attuale,"Phishing: login da un sito clone",9,0,1
+attuale,"Phishing: login da un sito clone",10,0,1
+attuale,"Phishing: login da un sito clone",11,0,1
+attuale,"Phishing: login da un sito clone",12,0,1
+attuale,"Phishing: login da un sito clone",13,0,1
+attuale,"Phishing: login da un sito clone",14,0,1
+attuale,"Phishing: login da un sito clone",15,0,1
+attuale,"Phishing: login da un sito clone",16,0,1
+attuale,"Phishing: login da un sito clone",17,0,1
+attuale,"Phishing: login da un sito clone",18,0,1
+attuale,"Phishing: login da un sito clone",19,0,1
+attuale,"Phishing: login da un sito clone",20,0,1
+attuale,"Phishing: login da un sito clone",21,0,1
+attuale,"Phishing: login da un sito clone",22,0,1
+attuale,"Phishing: login da un sito clone",23,0,1
+attuale,"Phishing: login da un sito clone",24,0,1
+attuale,"Phishing: login da un sito clone",25,0,1
+attuale,"Phishing: login da un sito clone",26,0,1
+attuale,"Phishing: login da un sito clone",27,0,1
+attuale,"Phishing: login da un sito clone",28,0,1
+attuale,"Phishing: login da un sito clone",29,0,1
+attuale,"Replay di una risposta di login",0,0,1
+attuale,"Replay di una risposta di login",1,0,1
+attuale,"Replay di una risposta di login",2,0,1
+attuale,"Replay di una risposta di login",3,0,1
+attuale,"Replay di una risposta di login",4,0,1
+attuale,"Replay di una risposta di login",5,0,1
+attuale,"Replay di una risposta di login",6,0,1
+attuale,"Replay di una risposta di login",7,0,1
+attuale,"Replay di una risposta di login",8,0,1
+attuale,"Replay di una risposta di login",9,0,1
+attuale,"Replay di una risposta di login",10,0,1
+attuale,"Replay di una risposta di login",11,0,1
+attuale,"Replay di una risposta di login",12,0,1
+attuale,"Replay di una risposta di login",13,0,1
+attuale,"Replay di una risposta di login",14,0,1
+attuale,"Replay di una risposta di login",15,0,1
+attuale,"Replay di una risposta di login",16,0,1
+attuale,"Replay di una risposta di login",17,0,1
+attuale,"Replay di una risposta di login",18,0,1
+attuale,"Replay di una risposta di login",19,0,1
+attuale,"Replay di una risposta di login",20,0,1
+attuale,"Replay di una risposta di login",21,0,1
+attuale,"Replay di una risposta di login",22,0,1
+attuale,"Replay di una risposta di login",23,0,1
+attuale,"Replay di una risposta di login",24,0,1
+attuale,"Replay di una risposta di login",25,0,1
+attuale,"Replay di una risposta di login",26,0,1
+attuale,"Replay di una risposta di login",27,0,1
+attuale,"Replay di una risposta di login",28,0,1
+attuale,"Replay di una risposta di login",29,0,1
+attuale,"Clone usato in parallelo all'originale",0,0,1
+attuale,"Clone usato in parallelo all'originale",1,0,1
+attuale,"Clone usato in parallelo all'originale",2,0,1
+attuale,"Clone usato in parallelo all'originale",3,0,1
+attuale,"Clone usato in parallelo all'originale",4,0,1
+attuale,"Clone usato in parallelo all'originale",5,0,1
+attuale,"Clone usato in parallelo all'originale",6,0,1
+attuale,"Clone usato in parallelo all'originale",7,0,1
+attuale,"Clone usato in parallelo all'originale",8,0,1
+attuale,"Clone usato in parallelo all'originale",9,0,1
+attuale,"Clone usato in parallelo all'originale",10,0,1
+attuale,"Clone usato in parallelo all'originale",11,0,1
+attuale,"Clone usato in parallelo all'originale",12,0,1
+attuale,"Clone usato in parallelo all'originale",13,0,1
+attuale,"Clone usato in parallelo all'originale",14,0,1
+attuale,"Clone usato in parallelo all'originale",15,0,1
+attuale,"Clone usato in parallelo all'originale",16,0,1
+attuale,"Clone usato in parallelo all'originale",17,0,1
+attuale,"Clone usato in parallelo all'originale",18,0,1
+attuale,"Clone usato in parallelo all'originale",19,0,1
+attuale,"Clone usato in parallelo all'originale",20,0,1
+attuale,"Clone usato in parallelo all'originale",21,0,1
+attuale,"Clone usato in parallelo all'originale",22,0,1
+attuale,"Clone usato in parallelo all'originale",23,0,1
+attuale,"Clone usato in parallelo all'originale",24,0,1
+attuale,"Clone usato in parallelo all'originale",25,0,1
+attuale,"Clone usato in parallelo all'originale",26,0,1
+attuale,"Clone usato in parallelo all'originale",27,0,1
+attuale,"Clone usato in parallelo all'originale",28,0,1
+attuale,"Clone usato in parallelo all'originale",29,0,1
+attuale,"Blocco del login altrui (DoS)",0,0,1
+attuale,"Blocco del login altrui (DoS)",1,0,1
+attuale,"Blocco del login altrui (DoS)",2,0,1
+attuale,"Blocco del login altrui (DoS)",3,0,1
+attuale,"Blocco del login altrui (DoS)",4,0,1
+attuale,"Blocco del login altrui (DoS)",5,0,1
+attuale,"Blocco del login altrui (DoS)",6,0,1
+attuale,"Blocco del login altrui (DoS)",7,0,1
+attuale,"Blocco del login altrui (DoS)",8,0,1
+attuale,"Blocco del login altrui (DoS)",9,0,1
+attuale,"Blocco del login altrui (DoS)",10,0,1
+attuale,"Blocco del login altrui (DoS)",11,0,1
+attuale,"Blocco del login altrui (DoS)",12,0,1
+attuale,"Blocco del login altrui (DoS)",13,0,1
+attuale,"Blocco del login altrui (DoS)",14,0,1
+attuale,"Blocco del login altrui (DoS)",15,0,1
+attuale,"Blocco del login altrui (DoS)",16,0,1
+attuale,"Blocco del login altrui (DoS)",17,0,1
+attuale,"Blocco del login altrui (DoS)",18,0,1
+attuale,"Blocco del login altrui (DoS)",19,0,1
+attuale,"Blocco del login altrui (DoS)",20,0,1
+attuale,"Blocco del login altrui (DoS)",21,0,1
+attuale,"Blocco del login altrui (DoS)",22,0,1
+attuale,"Blocco del login altrui (DoS)",23,0,1
+attuale,"Blocco del login altrui (DoS)",24,0,1
+attuale,"Blocco del login altrui (DoS)",25,0,1
+attuale,"Blocco del login altrui (DoS)",26,0,1
+attuale,"Blocco del login altrui (DoS)",27,0,1
+attuale,"Blocco del login altrui (DoS)",28,0,1
+attuale,"Blocco del login altrui (DoS)",29,0,1
+attuale,"Enumerazione degli utenti",0,0,1
+attuale,"Enumerazione degli utenti",1,0,1
+attuale,"Enumerazione degli utenti",2,0,1
+attuale,"Enumerazione degli utenti",3,0,1
+attuale,"Enumerazione degli utenti",4,0,1
+attuale,"Enumerazione degli utenti",5,0,1
+attuale,"Enumerazione degli utenti",6,0,1
+attuale,"Enumerazione degli utenti",7,0,1
+attuale,"Enumerazione degli utenti",8,0,1
+attuale,"Enumerazione degli utenti",9,0,1
+attuale,"Enumerazione degli utenti",10,0,1
+attuale,"Enumerazione degli utenti",11,0,1
+attuale,"Enumerazione degli utenti",12,0,1
+attuale,"Enumerazione degli utenti",13,0,1
+attuale,"Enumerazione degli utenti",14,0,1
+attuale,"Enumerazione degli utenti",15,0,1
+attuale,"Enumerazione degli utenti",16,0,1
+attuale,"Enumerazione degli utenti",17,0,1
+attuale,"Enumerazione degli utenti",18,0,1
+attuale,"Enumerazione degli utenti",19,0,1
+attuale,"Enumerazione degli utenti",20,0,1
+attuale,"Enumerazione degli utenti",21,0,1
+attuale,"Enumerazione degli utenti",22,0,1
+attuale,"Enumerazione degli utenti",23,0,1
+attuale,"Enumerazione degli utenti",24,0,1
+attuale,"Enumerazione degli utenti",25,0,1
+attuale,"Enumerazione degli utenti",26,0,1
+attuale,"Enumerazione degli utenti",27,0,1
+attuale,"Enumerazione degli utenti",28,0,1
+attuale,"Enumerazione degli utenti",29,0,1
+attuale,"Passkey aggiunta all'account di un altro",0,0,1
+attuale,"Passkey aggiunta all'account di un altro",1,0,1
+attuale,"Passkey aggiunta all'account di un altro",2,0,1
+attuale,"Passkey aggiunta all'account di un altro",3,0,1
+attuale,"Passkey aggiunta all'account di un altro",4,0,1
+attuale,"Passkey aggiunta all'account di un altro",5,0,1
+attuale,"Passkey aggiunta all'account di un altro",6,0,1
+attuale,"Passkey aggiunta all'account di un altro",7,0,1
+attuale,"Passkey aggiunta all'account di un altro",8,0,1
+attuale,"Passkey aggiunta all'account di un altro",9,0,1
+attuale,"Passkey aggiunta all'account di un altro",10,0,1
+attuale,"Passkey aggiunta all'account di un altro",11,0,1
+attuale,"Passkey aggiunta all'account di un altro",12,0,1
+attuale,"Passkey aggiunta all'account di un altro",13,0,1
+attuale,"Passkey aggiunta all'account di un altro",14,0,1
+attuale,"Passkey aggiunta all'account di un altro",15,0,1
+attuale,"Passkey aggiunta all'account di un altro",16,0,1
+attuale,"Passkey aggiunta all'account di un altro",17,0,1
+attuale,"Passkey aggiunta all'account di un altro",18,0,1
+attuale,"Passkey aggiunta all'account di un altro",19,0,1
+attuale,"Passkey aggiunta all'account di un altro",20,0,1
+attuale,"Passkey aggiunta all'account di un altro",21,0,1
+attuale,"Passkey aggiunta all'account di un altro",22,0,1
+attuale,"Passkey aggiunta all'account di un altro",23,0,1
+attuale,"Passkey aggiunta all'account di un altro",24,0,1
+attuale,"Passkey aggiunta all'account di un altro",25,0,1
+attuale,"Passkey aggiunta all'account di un altro",26,0,1
+attuale,"Passkey aggiunta all'account di un altro",27,0,1
+attuale,"Passkey aggiunta all'account di un altro",28,0,1
+attuale,"Passkey aggiunta all'account di un altro",29,0,1
+attuale,"Cartella aperta per una finalità senza consenso",0,0,1
+attuale,"Cartella aperta per una finalità senza consenso",1,0,1
+attuale,"Cartella aperta per una finalità senza consenso",2,0,1
+attuale,"Cartella aperta per una finalità senza consenso",3,0,1
+attuale,"Cartella aperta per una finalità senza consenso",4,0,1
+attuale,"Cartella aperta per una finalità senza consenso",5,0,1
+attuale,"Cartella aperta per una finalità senza consenso",6,0,1
+attuale,"Cartella aperta per una finalità senza consenso",7,0,1
+attuale,"Cartella aperta per una finalità senza consenso",8,0,1
+attuale,"Cartella aperta per una finalità senza consenso",9,0,1
+attuale,"Cartella aperta per una finalità senza consenso",10,0,1
+attuale,"Cartella aperta per una finalità senza consenso",11,0,1
+attuale,"Cartella aperta per una finalità senza consenso",12,0,1
+attuale,"Cartella aperta per una finalità senza consenso",13,0,1
+attuale,"Cartella aperta per una finalità senza consenso",14,0,1
+attuale,"Cartella aperta per una finalità senza consenso",15,0,1
+attuale,"Cartella aperta per una finalità senza consenso",16,0,1
+attuale,"Cartella aperta per una finalità senza consenso",17,0,1
+attuale,"Cartella aperta per una finalità senza consenso",18,0,1
+attuale,"Cartella aperta per una finalità senza consenso",19,0,1
+attuale,"Cartella aperta per una finalità senza consenso",20,0,1
+attuale,"Cartella aperta per una finalità senza consenso",21,0,1
+attuale,"Cartella aperta per una finalità senza consenso",22,0,1
+attuale,"Cartella aperta per una finalità senza consenso",23,0,1
+attuale,"Cartella aperta per una finalità senza consenso",24,0,1
+attuale,"Cartella aperta per una finalità senza consenso",25,0,1
+attuale,"Cartella aperta per una finalità senza consenso",26,0,1
+attuale,"Cartella aperta per una finalità senza consenso",27,0,1
+attuale,"Cartella aperta per una finalità senza consenso",28,0,1
+attuale,"Cartella aperta per una finalità senza consenso",29,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",0,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",1,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",2,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",3,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",4,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",5,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",6,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",7,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",8,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",9,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",10,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",11,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",12,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",13,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",14,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",15,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",16,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",17,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",18,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",19,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",20,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",21,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",22,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",23,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",24,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",25,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",26,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",27,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",28,0,1
+attuale,"Cartella aperta dopo la revoca del consenso",29,0,1
+attuale,"Paziente che apre la cartella di un altro",0,0,1
+attuale,"Paziente che apre la cartella di un altro",1,0,1
+attuale,"Paziente che apre la cartella di un altro",2,0,1
+attuale,"Paziente che apre la cartella di un altro",3,0,1
+attuale,"Paziente che apre la cartella di un altro",4,0,1
+attuale,"Paziente che apre la cartella di un altro",5,0,1
+attuale,"Paziente che apre la cartella di un altro",6,0,1
+attuale,"Paziente che apre la cartella di un altro",7,0,1
+attuale,"Paziente che apre la cartella di un altro",8,0,1
+attuale,"Paziente che apre la cartella di un altro",9,0,1
+attuale,"Paziente che apre la cartella di un altro",10,0,1
+attuale,"Paziente che apre la cartella di un altro",11,0,1
+attuale,"Paziente che apre la cartella di un altro",12,0,1
+attuale,"Paziente che apre la cartella di un altro",13,0,1
+attuale,"Paziente che apre la cartella di un altro",14,0,1
+attuale,"Paziente che apre la cartella di un altro",15,0,1
+attuale,"Paziente che apre la cartella di un altro",16,0,1
+attuale,"Paziente che apre la cartella di un altro",17,0,1
+attuale,"Paziente che apre la cartella di un altro",18,0,1
+attuale,"Paziente che apre la cartella di un altro",19,0,1
+attuale,"Paziente che apre la cartella di un altro",20,0,1
+attuale,"Paziente che apre la cartella di un altro",21,0,1
+attuale,"Paziente che apre la cartella di un altro",22,0,1
+attuale,"Paziente che apre la cartella di un altro",23,0,1
+attuale,"Paziente che apre la cartella di un altro",24,0,1
+attuale,"Paziente che apre la cartella di un altro",25,0,1
+attuale,"Paziente che apre la cartella di un altro",26,0,1
+attuale,"Paziente che apre la cartella di un altro",27,0,1
+attuale,"Paziente che apre la cartella di un altro",28,0,1
+attuale,"Paziente che apre la cartella di un altro",29,0,1
+attuale,"Accesso d'emergenza senza abilitazione",0,0,1
+attuale,"Accesso d'emergenza senza abilitazione",1,0,1
+attuale,"Accesso d'emergenza senza abilitazione",2,0,1
+attuale,"Accesso d'emergenza senza abilitazione",3,0,1
+attuale,"Accesso d'emergenza senza abilitazione",4,0,1
+attuale,"Accesso d'emergenza senza abilitazione",5,0,1
+attuale,"Accesso d'emergenza senza abilitazione",6,0,1
+attuale,"Accesso d'emergenza senza abilitazione",7,0,1
+attuale,"Accesso d'emergenza senza abilitazione",8,0,1
+attuale,"Accesso d'emergenza senza abilitazione",9,0,1
+attuale,"Accesso d'emergenza senza abilitazione",10,0,1
+attuale,"Accesso d'emergenza senza abilitazione",11,0,1
+attuale,"Accesso d'emergenza senza abilitazione",12,0,1
+attuale,"Accesso d'emergenza senza abilitazione",13,0,1
+attuale,"Accesso d'emergenza senza abilitazione",14,0,1
+attuale,"Accesso d'emergenza senza abilitazione",15,0,1
+attuale,"Accesso d'emergenza senza abilitazione",16,0,1
+attuale,"Accesso d'emergenza senza abilitazione",17,0,1
+attuale,"Accesso d'emergenza senza abilitazione",18,0,1
+attuale,"Accesso d'emergenza senza abilitazione",19,0,1
+attuale,"Accesso d'emergenza senza abilitazione",20,0,1
+attuale,"Accesso d'emergenza senza abilitazione",21,0,1
+attuale,"Accesso d'emergenza senza abilitazione",22,0,1
+attuale,"Accesso d'emergenza senza abilitazione",23,0,1
+attuale,"Accesso d'emergenza senza abilitazione",24,0,1
+attuale,"Accesso d'emergenza senza abilitazione",25,0,1
+attuale,"Accesso d'emergenza senza abilitazione",26,0,1
+attuale,"Accesso d'emergenza senza abilitazione",27,0,1
+attuale,"Accesso d'emergenza senza abilitazione",28,0,1
+attuale,"Accesso d'emergenza senza abilitazione",29,0,1
+attuale,"Referto firmato con la passkey di un altro",0,0,1
+attuale,"Referto firmato con la passkey di un altro",1,0,1
+attuale,"Referto firmato con la passkey di un altro",2,0,1
+attuale,"Referto firmato con la passkey di un altro",3,0,1
+attuale,"Referto firmato con la passkey di un altro",4,0,1
+attuale,"Referto firmato con la passkey di un altro",5,0,1
+attuale,"Referto firmato con la passkey di un altro",6,0,1
+attuale,"Referto firmato con la passkey di un altro",7,0,1
+attuale,"Referto firmato con la passkey di un altro",8,0,1
+attuale,"Referto firmato con la passkey di un altro",9,0,1
+attuale,"Referto firmato con la passkey di un altro",10,0,1
+attuale,"Referto firmato con la passkey di un altro",11,0,1
+attuale,"Referto firmato con la passkey di un altro",12,0,1
+attuale,"Referto firmato con la passkey di un altro",13,0,1
+attuale,"Referto firmato con la passkey di un altro",14,0,1
+attuale,"Referto firmato con la passkey di un altro",15,0,1
+attuale,"Referto firmato con la passkey di un altro",16,0,1
+attuale,"Referto firmato con la passkey di un altro",17,0,1
+attuale,"Referto firmato con la passkey di un altro",18,0,1
+attuale,"Referto firmato con la passkey di un altro",19,0,1
+attuale,"Referto firmato con la passkey di un altro",20,0,1
+attuale,"Referto firmato con la passkey di un altro",21,0,1
+attuale,"Referto firmato con la passkey di un altro",22,0,1
+attuale,"Referto firmato con la passkey di un altro",23,0,1
+attuale,"Referto firmato con la passkey di un altro",24,0,1
+attuale,"Referto firmato con la passkey di un altro",25,0,1
+attuale,"Referto firmato con la passkey di un altro",26,0,1
+attuale,"Referto firmato con la passkey di un altro",27,0,1
+attuale,"Referto firmato con la passkey di un altro",28,0,1
+attuale,"Referto firmato con la passkey di un altro",29,0,1
+attuale,"Firma intercettata riusata da un collega",0,0,1
+attuale,"Firma intercettata riusata da un collega",1,0,1
+attuale,"Firma intercettata riusata da un collega",2,0,1
+attuale,"Firma intercettata riusata da un collega",3,0,1
+attuale,"Firma intercettata riusata da un collega",4,0,1
+attuale,"Firma intercettata riusata da un collega",5,0,1
+attuale,"Firma intercettata riusata da un collega",6,0,1
+attuale,"Firma intercettata riusata da un collega",7,0,1
+attuale,"Firma intercettata riusata da un collega",8,0,1
+attuale,"Firma intercettata riusata da un collega",9,0,1
+attuale,"Firma intercettata riusata da un collega",10,0,1
+attuale,"Firma intercettata riusata da un collega",11,0,1
+attuale,"Firma intercettata riusata da un collega",12,0,1
+attuale,"Firma intercettata riusata da un collega",13,0,1
+attuale,"Firma intercettata riusata da un collega",14,0,1
+attuale,"Firma intercettata riusata da un collega",15,0,1
+attuale,"Firma intercettata riusata da un collega",16,0,1
+attuale,"Firma intercettata riusata da un collega",17,0,1
+attuale,"Firma intercettata riusata da un collega",18,0,1
+attuale,"Firma intercettata riusata da un collega",19,0,1
+attuale,"Firma intercettata riusata da un collega",20,0,1
+attuale,"Firma intercettata riusata da un collega",21,0,1
+attuale,"Firma intercettata riusata da un collega",22,0,1
+attuale,"Firma intercettata riusata da un collega",23,0,1
+attuale,"Firma intercettata riusata da un collega",24,0,1
+attuale,"Firma intercettata riusata da un collega",25,0,1
+attuale,"Firma intercettata riusata da un collega",26,0,1
+attuale,"Firma intercettata riusata da un collega",27,0,1
+attuale,"Firma intercettata riusata da un collega",28,0,1
+attuale,"Firma intercettata riusata da un collega",29,0,1
+attuale,"Referto scambiato nel database",0,0,1
+attuale,"Referto scambiato nel database",1,0,1
+attuale,"Referto scambiato nel database",2,0,1
+attuale,"Referto scambiato nel database",3,0,1
+attuale,"Referto scambiato nel database",4,0,1
+attuale,"Referto scambiato nel database",5,0,1
+attuale,"Referto scambiato nel database",6,0,1
+attuale,"Referto scambiato nel database",7,0,1
+attuale,"Referto scambiato nel database",8,0,1
+attuale,"Referto scambiato nel database",9,0,1
+attuale,"Referto scambiato nel database",10,0,1
+attuale,"Referto scambiato nel database",11,0,1
+attuale,"Referto scambiato nel database",12,0,1
+attuale,"Referto scambiato nel database",13,0,1
+attuale,"Referto scambiato nel database",14,0,1
+attuale,"Referto scambiato nel database",15,0,1
+attuale,"Referto scambiato nel database",16,0,1
+attuale,"Referto scambiato nel database",17,0,1
+attuale,"Referto scambiato nel database",18,0,1
+attuale,"Referto scambiato nel database",19,0,1
+attuale,"Referto scambiato nel database",20,0,1
+attuale,"Referto scambiato nel database",21,0,1
+attuale,"Referto scambiato nel database",22,0,1
+attuale,"Referto scambiato nel database",23,0,1
+attuale,"Referto scambiato nel database",24,0,1
+attuale,"Referto scambiato nel database",25,0,1
+attuale,"Referto scambiato nel database",26,0,1
+attuale,"Referto scambiato nel database",27,0,1
+attuale,"Referto scambiato nel database",28,0,1
+attuale,"Referto scambiato nel database",29,0,1

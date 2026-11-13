@@ -1,0 +1,7 @@
+# Ambiente Python per il notebook di analisi (versioni fissate per la riproducibilità)
+pandas==3.1.1
+numpy==2.5.3
+matplotlib==3.11.2
+jupyter==1.1.1
+nbconvert==7.17.2
+ipykernel==7.4.0

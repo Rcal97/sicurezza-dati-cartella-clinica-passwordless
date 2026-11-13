@@ -1,0 +1,16 @@
+,attacco_riuscito,attacco_riuscito,legittimo_riuscito,legittimo_riuscito
+versione,attuale,prima-della-revisione,attuale,prima-della-revisione
+scenario,,,,
+Accesso d'emergenza senza abilitazione,0.0,,100.0,
+Blocco del login altrui (DoS),0.0,100.0,100.0,100.0
+Cartella aperta dopo la revoca del consenso,0.0,,100.0,
+Cartella aperta per una finalità senza consenso,0.0,,100.0,
+Clone usato in parallelo all'originale,0.0,0.0,100.0,100.0
+Enumerazione degli utenti,0.0,100.0,100.0,100.0
+Firma intercettata riusata da un collega,0.0,,100.0,
+Passkey aggiunta all'account di un altro,0.0,0.0,100.0,100.0
+Paziente che apre la cartella di un altro,0.0,,100.0,
+Phishing: login da un sito clone,0.0,0.0,100.0,100.0
+Referto firmato con la passkey di un altro,0.0,,100.0,
+Referto scambiato nel database,0.0,,100.0,
+Replay di una risposta di login,0.0,0.0,100.0,100.0

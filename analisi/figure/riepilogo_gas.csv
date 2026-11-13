@@ -1,0 +1,8 @@
+operazione,variante,minimo,mediana,massimo,misure
+grantConsent,prima concessione,49967,49967,49967,150
+grantConsent,rinnovo (stessa finalità),32867,32867,32867,150
+grantConsent,seconda finalità,49967,49979,49979,150
+recordAccess,concesso,41896,41908,59008,150
+recordAccess,negato,34827,34839,34839,150
+recordEmergencyAccess,d'emergenza,36769,36781,36781,150
+revokeConsent,revoca,24718,24718,24718,150
