@@ -32,3 +32,6 @@ circuits/build/
 AGENTS.md
 CLAUDE.md
 !.env.example
+
+# Ambiente Python del notebook di analisi
+analisi/.venv/
