@@ -130,3 +130,18 @@ ul.referti p {
   margin: 4px 0;
   white-space: pre-wrap;
 }
+
+li.consenso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+li.consenso button {
+  margin-left: auto;
+  padding: 4px 10px;
+}
+
+code {
+  word-break: break-all;
+}

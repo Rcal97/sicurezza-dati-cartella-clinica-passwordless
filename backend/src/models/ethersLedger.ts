@@ -1,12 +1,13 @@
 import {
   Contract,
+  getAddress,
   HDNodeWallet,
   JsonRpcProvider,
   Wallet,
   type ContractTransactionResponse,
   type TransactionReceipt,
 } from "ethers";
-import { LedgerRevert, type AccessEntry, type EmergencyEntry, type Ledger, type Purpose } from "./ledger.js";
+import { LedgerRevert, type AccessEntry, type ChainInfo, type EmergencyEntry, type Ledger, type Purpose } from "./ledger.js";
 
 // Solo le funzioni, gli eventi e gli errori che il backend usa (gli enum viaggiano come uint8).
 const CONSENT_ABI = [
@@ -56,6 +57,7 @@ export class EthersLedger implements Ledger {
     private readonly provider: JsonRpcProvider,
     private readonly consent: Contract,
     private readonly audit: Contract,
+    readonly chain: ChainInfo,
   ) {}
 
   static async connect(cfg: LedgerConfig): Promise<EthersLedger> {
@@ -69,8 +71,9 @@ export class EthersLedger implements Ledger {
       }
     }
     const signer = new Wallet(cfg.privateKey, provider);
+    const chainId = (await provider.getNetwork()).chainId;
     try {
-      assertSafeKey(signer.address, (await provider.getNetwork()).chainId);
+      assertSafeKey(signer.address, chainId);
     } catch (err) {
       provider.destroy();
       throw err;
@@ -79,6 +82,7 @@ export class EthersLedger implements Ledger {
       provider,
       new Contract(cfg.consentRegistry, CONSENT_ABI, provider),
       new Contract(cfg.auditLog, AUDIT_ABI, signer),
+      { chainId: Number(chainId), consentRegistry: getAddress(cfg.consentRegistry) },
     );
   }
 

@@ -29,7 +29,15 @@ export class LedgerRevert extends Error {
   }
 }
 
+// Informazioni pubbliche sulla rete, che il frontend usa per far firmare al paziente
+// le transazioni di consenso con il suo wallet.
+export interface ChainInfo {
+  chainId: number;
+  consentRegistry: string;
+}
+
 export interface Ledger {
+  readonly chain: ChainInfo;
   isConsentValid(patient: string, grantee: string, purpose: Purpose): Promise<boolean>;
   // Restituiscono l'identificativo della voce d'audit, dopo che la transazione è in un blocco.
   recordAccess(entry: AccessEntry): Promise<bigint>;

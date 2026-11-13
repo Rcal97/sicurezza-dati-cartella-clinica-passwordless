@@ -254,4 +254,12 @@ describe("MongoStore (MongoDB reale)", () => {
     ]);
     assert.equal(results.filter((r) => r !== null).length, 1);
   });
+
+  it("l'elenco dei medici non comprende i pazienti", async () => {
+    await store.setProfile(name("dr.elenco"), { role: "doctor", address: Wallet.createRandom().address });
+    await store.setProfile(name("paz.elenco"), { role: "patient", address: Wallet.createRandom().address });
+    const doctors = (await store.listDoctors()).map((d) => d.username);
+    assert.ok(doctors.includes(name("dr.elenco")));
+    assert.ok(!doctors.includes(name("paz.elenco")));
+  });
 });

@@ -20,6 +20,7 @@ export default defineConfig({
       "/webauthn": "http://127.0.0.1:3000",
       "/session": "http://127.0.0.1:3000",
       "/records": "http://127.0.0.1:3000",
+      "/directory": "http://127.0.0.1:3000",
     },
   },
 });

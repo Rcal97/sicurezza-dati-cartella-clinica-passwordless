@@ -249,6 +249,11 @@ export class MongoStore implements Store {
     return doc ? { role: doc.role, address: doc.address } : null;
   }
 
+  async listDoctors(): Promise<Array<{ username: string; address: string }>> {
+    const docs = await this.profiles.find({ role: "doctor" }).sort({ _id: 1 }).limit(1000).toArray();
+    return docs.map((d) => ({ username: d._id, address: d.address }));
+  }
+
   async addAccessLog(entry: AccessLogEntry): Promise<void> {
     // Copia: il driver aggiungerebbe _id all'oggetto ricevuto.
     await this.accessLog.insertOne({ ...entry });

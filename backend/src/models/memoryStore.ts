@@ -136,6 +136,13 @@ export class MemoryStore implements Store {
     return this.profiles.get(username) ?? null;
   }
 
+  async listDoctors(): Promise<Array<{ username: string; address: string }>> {
+    return [...this.profiles]
+      .filter(([, p]) => p.role === "doctor")
+      .map(([username, p]) => ({ username, address: p.address }))
+      .sort((a, b) => a.username.localeCompare(b.username));
+  }
+
   async addAccessLog(entry: AccessLogEntry): Promise<void> {
     this.accessLog.push(entry);
   }

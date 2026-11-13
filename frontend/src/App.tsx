@@ -8,9 +8,11 @@ import {
 } from "@simplewebauthn/browser";
 import { api } from "./api";
 import PannelloCartella from "./Cartella";
+import PannelloConsensi from "./Consensi";
 
 type Messaggio = { tipo: "ok" | "errore"; testo: string } | null;
 type Passkey = { id: string; transports: string[] };
+type Profilo = { username: string; role: "doctor" | "patient" | null; address: string | null };
 
 // Traduce gli errori più comuni in messaggi comprensibili per l'utente.
 function descrivi(err: unknown): string {
@@ -29,6 +31,7 @@ export default function App() {
   const [messaggio, setMessaggio] = useState<Messaggio>(null);
   const [inCorso, setInCorso] = useState(false);
   const [passkeys, setPasskeys] = useState<Passkey[]>([]);
+  const [profilo, setProfilo] = useState<Profilo | null>(null);
 
   // All'avvio controlla se esiste già una sessione valida.
   useEffect(() => {
@@ -37,7 +40,9 @@ export default function App() {
 
   // Da autenticato, carica l'elenco delle proprie passkey.
   useEffect(() => {
-    if (utente) api.get<Passkey[]>("/session/passkeys").then(setPasskeys).catch(() => setPasskeys([]));
+    if (!utente) return;
+    api.get<Passkey[]>("/session/passkeys").then(setPasskeys).catch(() => setPasskeys([]));
+    api.get<Profilo>("/directory/profile").then(setProfilo).catch(() => setProfilo(null));
   }, [utente]);
 
   async function esegui(azione: () => Promise<void>) {
@@ -148,7 +153,11 @@ export default function App() {
           <button className="secondario" onClick={esciOvunque} disabled={inCorso}>
             Esci da tutti i dispositivi
           </button>
-          <PannelloCartella />
+          {profilo?.role === "doctor" && <PannelloCartella />}
+          {profilo?.role === "patient" && profilo.address && <PannelloConsensi indirizzo={profilo.address} />}
+          {profilo && profilo.role === null && (
+            <p className="nota">Il tuo profilo non ha ancora un ruolo: lo assegna la struttura dopo l'identificazione.</p>
+          )}
         </>
       ) : (
         <>

@@ -11,6 +11,7 @@ import {
 // Implementazione in memoria del registro on-chain, usata dai test del backend.
 // Applica le stesse regole dei contratti ConsentRegistry e AuditLog.
 export class MemoryLedger implements Ledger {
+  readonly chain = { chainId: 31337, consentRegistry: "0x5FbDB2315678afecb367f032d93F642f64180aa3" };
   private readonly consents = new Map<string, number>(); // chiave -> scadenza in ms
   readonly emergencyStaff = new Set<string>();
   readonly entries: Array<(AccessEntry | EmergencyEntry) & { entryId: bigint }> = [];

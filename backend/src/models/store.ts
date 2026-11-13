@@ -122,6 +122,8 @@ export interface Store {
   // Profili: un indirizzo blockchain appartiene a un solo utente ("duplicate" altrimenti).
   setProfile(username: string, profile: Profile): Promise<"ok" | "duplicate">;
   getProfile(username: string): Promise<Profile | null>;
+  // Elenco pubblico dei medici (nome utente e indirizzo), per scegliere a chi dare il consenso.
+  listDoctors(): Promise<Array<{ username: string; address: string }>>;
 
   // Copia off-chain dei dettagli degli accessi registrati sulla catena.
   addAccessLog(entry: AccessLogEntry): Promise<void>;
