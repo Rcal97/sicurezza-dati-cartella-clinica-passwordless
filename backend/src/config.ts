@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 // Parametri della Relying Party (il nostro servizio) per WebAuthn.
 export const config = {
   rpName: "Cartella Clinica Passwordless",
@@ -23,6 +25,10 @@ export function mongoUrl(): string {
   const host = process.env.MONGO_HOST ?? "127.0.0.1:27017";
   return `mongodb://${user}:${password}@${host}/${MONGO_APP_DB}?authSource=${MONGO_APP_DB}`;
 }
+
+// File con le chiavi private dell'archivio dei referti (fuori da Git, permessi 600).
+export const archiveKeyFile = (): string =>
+  process.env.ARCHIVE_KEY_FILE ?? fileURLToPath(new URL("../../secrets/archivio.pem", import.meta.url));
 
 // Collegamento alla blockchain: nodo, chiave del backend (ruolo RECORDER) e indirizzi dei contratti.
 export function ledgerConfig() {

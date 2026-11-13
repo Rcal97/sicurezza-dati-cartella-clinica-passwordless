@@ -1,5 +1,5 @@
 import type { WebAuthnCredential } from "@simplewebauthn/server";
-import type { AccessLogEntry, PendingRegistration, Profile, Store, User } from "./store.js";
+import type { AccessLogEntry, PendingRegistration, Profile, Store, StoredDocument, User } from "./store.js";
 
 // Implementazione in memoria: usata dai test, non conserva nulla tra un avvio e l'altro.
 export class MemoryStore implements Store {
@@ -11,6 +11,7 @@ export class MemoryStore implements Store {
   private readonly profiles = new Map<string, Profile>();
   // Pubblico per permettere ai test di controllarne il contenuto.
   readonly accessLog: AccessLogEntry[] = [];
+  readonly documents: StoredDocument[] = [];
 
   async getUser(username: string): Promise<User | null> {
     return this.users.get(username) ?? null;
@@ -103,6 +104,14 @@ export class MemoryStore implements Store {
 
   async addAccessLog(entry: AccessLogEntry): Promise<void> {
     this.accessLog.push(entry);
+  }
+
+  async addDocument(doc: StoredDocument): Promise<void> {
+    this.documents.push(doc);
+  }
+
+  async listDocuments(patient: string): Promise<StoredDocument[]> {
+    return this.documents.filter((d) => d.patient === patient);
   }
 
   async close(): Promise<void> {}

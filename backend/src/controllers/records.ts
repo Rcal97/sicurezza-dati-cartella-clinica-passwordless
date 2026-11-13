@@ -1,5 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Request, Response } from "express";
+import { openDocument } from "../crypto/records.js";
+import type { Vault } from "../crypto/vault.js";
 import { LedgerRevert, Outcome, Purpose, type Ledger } from "../models/ledger.js";
 import type { AccessDetails, Profile, Store } from "../models/store.js";
 import { USERNAME } from "./registration.js";
@@ -49,14 +51,23 @@ async function parties(store: Store, req: Request, res: Response): Promise<Parti
   return { requester, doctor, patientName, patient };
 }
 
-// Contenuto restituito al medico autorizzato. Per ora un segnaposto:
-// i referti cifrati arriveranno con il modulo di cifratura.
-function record(patient: string, entryId: bigint) {
-  return { patient, auditEntry: entryId.toString(), documents: [] };
-}
-
 // Controller dell'accesso alle cartelle cliniche.
-export function recordsController(store: Store, ledger: Ledger) {
+export function recordsController(store: Store, ledger: Ledger, vault: Vault) {
+  // Cartella consegnata al medico autorizzato: i referti sono decifrati solo ora,
+  // in memoria, e solo dopo che l'accesso è stato registrato sulla catena.
+  async function record(patient: string, entryId: bigint) {
+    const documents = (await store.listDocuments(patient)).map((doc) => {
+      try {
+        return { id: doc.id, createdAt: doc.createdAt, ...openDocument(vault, doc) };
+      } catch {
+        // AES-GCM ha rilevato un'alterazione: il documento non viene consegnato.
+        console.error(`Referto ${doc.id} alterato o non decifrabile`);
+        return { id: doc.id, createdAt: doc.createdAt, error: "integrità non verificata" };
+      }
+    });
+    return { patient, auditEntry: entryId.toString(), documents };
+  }
+
   return {
     // Accesso ordinario: serve un consenso valido per la finalità dichiarata.
     async access(req: Request, res: Response): Promise<void> {
@@ -116,7 +127,7 @@ export function recordsController(store: Store, ledger: Ledger) {
         res.status(403).json({ error: "nessun consenso valido per questa finalità" });
         return;
       }
-      res.json(record(p.patientName, entryId));
+      res.json(await record(p.patientName, entryId));
     },
 
     // Accesso d'emergenza (break-glass): niente consenso, ma motivazione obbligatoria
@@ -158,7 +169,7 @@ export function recordsController(store: Store, ledger: Ledger) {
         res.status(503).json({ error: "registro di audit non disponibile, riprova più tardi" });
         return;
       }
-      res.json(record(p.patientName, entryId));
+      res.json(await record(p.patientName, entryId));
     },
   };
 }

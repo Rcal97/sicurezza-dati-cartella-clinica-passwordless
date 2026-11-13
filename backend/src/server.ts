@@ -1,5 +1,6 @@
 import { createApp } from "./app.js";
-import { ledgerConfig, mongoUrl } from "./config.js";
+import { archiveKeyFile, ledgerConfig, mongoUrl } from "./config.js";
+import { Vault } from "./crypto/vault.js";
 import { EthersLedger } from "./models/ethersLedger.js";
 import { MongoStore } from "./models/mongoStore.js";
 
@@ -7,7 +8,8 @@ const PORT = Number(process.env.PORT ?? 3000);
 
 const store = await MongoStore.connect(mongoUrl());
 const ledger = await EthersLedger.connect(ledgerConfig());
-const server = createApp(store, ledger).listen(PORT, "127.0.0.1", () => {
+const vault = Vault.load(archiveKeyFile());
+const server = createApp(store, ledger, vault).listen(PORT, "127.0.0.1", () => {
   console.log(`Backend in ascolto su http://localhost:${PORT}`);
 });
 

@@ -1,6 +1,6 @@
 import { Binary, MongoClient, MongoServerError, type Collection, type Db } from "mongodb";
 import type { WebAuthnCredential } from "@simplewebauthn/server";
-import type { AccessLogEntry, PendingRegistration, Profile, Role, Store, User } from "./store.js";
+import type { AccessLogEntry, PendingRegistration, Profile, Role, Store, StoredDocument, User } from "./store.js";
 
 interface CredentialDoc {
   id: string;
@@ -30,6 +30,10 @@ interface InvitationDoc {
   expiresAt: Date;
 }
 
+interface DocumentDoc extends Omit<StoredDocument, "id"> {
+  _id: string; // identificativo del referto
+}
+
 interface ProfileDoc {
   _id: string; // username
   role: Role;
@@ -47,6 +51,7 @@ export class MongoStore implements Store {
     private readonly invitations: Collection<InvitationDoc>,
     private readonly profiles: Collection<ProfileDoc>,
     private readonly accessLog: Collection<AccessLogEntry>,
+    private readonly documents: Collection<DocumentDoc>,
   ) {}
 
   static async connect(url: string): Promise<MongoStore> {
@@ -61,6 +66,7 @@ export class MongoStore implements Store {
       db.collection<InvitationDoc>("invitations"),
       db.collection<ProfileDoc>("profiles"),
       db.collection<AccessLogEntry>("access_log"),
+      db.collection<DocumentDoc>("documents"),
     );
     await store.createIndexes();
     return store;
@@ -78,6 +84,7 @@ export class MongoStore implements Store {
     await this.invitations.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     // Un indirizzo blockchain appartiene a un solo utente.
     await this.profiles.createIndex({ address: 1 }, { unique: true });
+    await this.documents.createIndex({ patient: 1, createdAt: 1 });
   }
 
   async getUser(username: string): Promise<User | null> {
@@ -208,6 +215,16 @@ export class MongoStore implements Store {
   async addAccessLog(entry: AccessLogEntry): Promise<void> {
     // Copia: il driver aggiungerebbe _id all'oggetto ricevuto.
     await this.accessLog.insertOne({ ...entry });
+  }
+
+  async addDocument(doc: StoredDocument): Promise<void> {
+    const { id, ...rest } = doc;
+    await this.documents.insertOne({ _id: id, ...rest });
+  }
+
+  async listDocuments(patient: string): Promise<StoredDocument[]> {
+    const docs = await this.documents.find({ patient }).sort({ createdAt: 1 }).toArray();
+    return docs.map(({ _id, ...rest }) => ({ id: _id, ...rest }));
   }
 
   async close(): Promise<void> {

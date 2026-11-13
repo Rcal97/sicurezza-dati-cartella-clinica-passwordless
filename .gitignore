@@ -10,6 +10,7 @@ coverage/
 # Segreti e configurazione locale: mai nel repository
 .env
 .env.*
+secrets/
 *.pem
 *.key
 

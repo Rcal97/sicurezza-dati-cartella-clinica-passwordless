@@ -10,7 +10,9 @@
     "test:mongo": "node --env-file=../.env --import tsx --test --test-reporter=spec test/mongo/*.test.ts",
     "invito": "node --env-file=../.env --import tsx src/scripts/invite.ts",
     "test:chain": "node --env-file=../.env --import tsx --test --test-reporter=spec test/chain/*.test.ts",
-    "profilo": "node --env-file=../.env --import tsx src/scripts/profile.ts"
+    "profilo": "node --env-file=../.env --import tsx src/scripts/profile.ts",
+    "chiavi": "node --env-file=../.env --import tsx src/scripts/keys.ts",
+    "referto": "node --env-file=../.env --import tsx src/scripts/report.ts"
   },
   "keywords": [],
   "author": "",

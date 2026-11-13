@@ -6,6 +6,8 @@ import { Wallet } from "ethers";
 import { createApp } from "../src/app.js";
 import { config } from "../src/config.js";
 import { fingerprint } from "../src/controllers/records.js";
+import { sealDocument } from "../src/crypto/records.js";
+import { Vault } from "../src/crypto/vault.js";
 import { Outcome, Purpose, type AccessEntry } from "../src/models/ledger.js";
 import { MemoryLedger } from "../src/models/memoryLedger.js";
 import { MemoryStore } from "../src/models/memoryStore.js";
@@ -15,11 +17,12 @@ import { SoftAuthenticator } from "./softAuthenticator.js";
 
 const store = new MemoryStore();
 const ledger = new MemoryLedger();
+const vault = Vault.generate();
 let server: Server;
 let baseUrl: string;
 
 before(async () => {
-  server = createApp(store, ledger).listen(0);
+  server = createApp(store, ledger, vault).listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
@@ -86,8 +89,10 @@ describe("Accesso alla cartella: consenso e audit", () => {
   it("senza consenso l'accesso è negato e registrato come negato", async () => {
     const doctor = await user("dr.senza", "doctor");
     const patient = await user("paz.senza", "patient");
+    await store.addDocument(sealDocument(vault, patient.username, { title: "Referto riservato", body: "..." }));
     const res = await call("/records/access", { patient: patient.username, purpose: "care" }, doctor.cookie);
     assert.equal(res.status, 403);
+    assert.equal(res.body.documents, undefined);
     assert.equal(lastEntry().outcome, Outcome.Denied);
     assert.equal(lastEntry().accessor, doctor.address);
   });
@@ -166,6 +171,64 @@ describe("Accesso alla cartella: consenso e audit", () => {
     } finally {
       ledger.recordAccess = original;
     }
+  });
+});
+
+describe("Referti cifrati", () => {
+  it("il medico autorizzato riceve i referti decifrati", async () => {
+    const doctor = await user("dr.referti", "doctor");
+    const patient = await user("paz.referti", "patient");
+    await store.addDocument(sealDocument(vault, patient.username, { title: "Emocromo", body: "Valori nella norma." }));
+    await store.addDocument(sealDocument(vault, patient.username, { title: "RX torace", body: "Nessun reperto." }));
+    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+
+    const res = await call("/records/access", { patient: patient.username, purpose: "care" }, doctor.cookie);
+    assert.equal(res.status, 200);
+    assert.deepEqual(
+      res.body.documents.map((d: { title: string; body: string }) => [d.title, d.body]),
+      [
+        ["Emocromo", "Valori nella norma."],
+        ["RX torace", "Nessun reperto."],
+      ],
+    );
+  });
+
+  it("nel database i referti sono solo cifrati, titolo compreso", async () => {
+    const patient = await user("paz.archivio", "patient");
+    await store.addDocument(sealDocument(vault, patient.username, { title: "Esame HIV", body: "Negativo." }));
+    const saved = JSON.stringify(store.documents.filter((d) => d.patient === patient.username));
+    assert.ok(!saved.includes("HIV"));
+    assert.ok(!saved.includes("Negativo"));
+  });
+
+  it("un referto alterato nel database non viene consegnato, gli altri sì", async () => {
+    const doctor = await user("dr.integrita", "doctor");
+    const patient = await user("paz.integrita", "patient");
+    const good = sealDocument(vault, patient.username, { title: "Glicemia", body: "95 mg/dl" });
+    const bad = sealDocument(vault, patient.username, { title: "Colesterolo", body: "180 mg/dl" });
+    // Chi ha accesso al database prova a sostituire il testo cifrato di un referto con quello di un altro.
+    bad.sealed = { ...bad.sealed, ciphertext: good.sealed.ciphertext };
+    await store.addDocument(good);
+    await store.addDocument(bad);
+    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+
+    const res = await call("/records/access", { patient: patient.username, purpose: "care" }, doctor.cookie);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.documents[0].body, "95 mg/dl");
+    assert.equal(res.body.documents[1].error, "integrità non verificata");
+    assert.equal(res.body.documents[1].body, undefined);
+  });
+
+  it("un referto copiato nella cartella di un altro paziente non si decifra", async () => {
+    const doctor = await user("dr.copia", "doctor");
+    const victim = await user("paz.vittima", "patient");
+    const other = await user("paz.destinazione", "patient");
+    const doc = sealDocument(vault, victim.username, { title: "Diagnosi", body: "Riservata" });
+    await store.addDocument({ ...doc, patient: other.username });
+    ledger.grantConsent(other.address, doctor.address, Purpose.Care);
+
+    const res = await call("/records/access", { patient: other.username, purpose: "care" }, doctor.cookie);
+    assert.equal(res.body.documents[0].error, "integrità non verificata");
   });
 });
 

@@ -6,6 +6,8 @@ import type { Server } from "node:http";
 import { MongoClient } from "mongodb";
 import { Wallet } from "ethers";
 import { createApp } from "../../src/app.js";
+import { openDocument, sealDocument } from "../../src/crypto/records.js";
+import { Vault } from "../../src/crypto/vault.js";
 import { config, mongoUrl } from "../../src/config.js";
 import { MemoryLedger } from "../../src/models/memoryLedger.js";
 import { MongoStore } from "../../src/models/mongoStore.js";
@@ -34,12 +36,13 @@ after(async () => {
   await db.collection("invitations").deleteMany({ username: prefix });
   await db.collection("profiles").deleteMany({ _id: prefix } as never);
   await db.collection("access_log").deleteMany({ "details.requester": prefix });
+  await db.collection("documents").deleteMany({ patient: prefix });
   await admin.close();
   await store.close();
 });
 
 async function start(s: MongoStore): Promise<{ server: Server; url: string }> {
-  const server = createApp(s, new MemoryLedger()).listen(0);
+  const server = createApp(s, new MemoryLedger(), Vault.generate()).listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   return { server, url: `http://127.0.0.1:${(server.address() as AddressInfo).port}` };
 }
@@ -179,5 +182,18 @@ describe("MongoStore (MongoDB reale)", () => {
     await store.addAccessLog(entry);
     const doc = await admin.db().collection("access_log").findOne({ "details.requester": name("medico") });
     assert.equal(doc?.recordHash, entry.recordHash);
+  });
+
+  it("i referti si salvano cifrati e si rileggono nell'ordine di creazione", async () => {
+    const vault = Vault.generate();
+    const first = sealDocument(vault, name("paziente"), { title: "Emocromo", body: "Nella norma" });
+    const second = sealDocument(vault, name("paziente"), { title: "RX torace", body: "Negativa" });
+    await store.addDocument(first);
+    await store.addDocument(second);
+
+    const docs = await store.listDocuments(name("paziente"));
+    assert.deepEqual(docs.map((d) => openDocument(vault, d).title), ["Emocromo", "RX torace"]);
+    const raw = await admin.db().collection("documents").findOne({ _id: first.id } as never);
+    assert.ok(!JSON.stringify(raw).includes("Emocromo"));
   });
 });

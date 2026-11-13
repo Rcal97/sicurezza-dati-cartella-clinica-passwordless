@@ -1,4 +1,5 @@
 import type { WebAuthnCredential } from "@simplewebauthn/server";
+import type { SealedDocument } from "../crypto/vault.js";
 
 // Model dell'architettura MVC: l'unico punto di accesso ai dati off-chain.
 // Le implementazioni sono due: in memoria (test) e su MongoDB (server).
@@ -48,6 +49,14 @@ export interface AccessLogEntry {
   details: AccessDetails;
 }
 
+// Referto conservato cifrato: in chiaro restano solo identificativo, paziente e data.
+export interface StoredDocument {
+  id: string;
+  patient: string;
+  createdAt: string;
+  sealed: SealedDocument;
+}
+
 export interface Store {
   getUser(username: string): Promise<User | null>;
   // Aggiunge una credenziale all'utente (creandolo se serve).
@@ -80,6 +89,10 @@ export interface Store {
 
   // Copia off-chain dei dettagli degli accessi registrati sulla catena.
   addAccessLog(entry: AccessLogEntry): Promise<void>;
+
+  // Referti cifrati di un paziente.
+  addDocument(doc: StoredDocument): Promise<void>;
+  listDocuments(patient: string): Promise<StoredDocument[]>;
 
   close(): Promise<void>;
 }
