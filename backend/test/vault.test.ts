@@ -56,6 +56,22 @@ describe("Cifratura dei referti (AES-256-GCM + ML-KEM-768/X25519)", () => {
     assert.throws(() => Vault.generate().open(sealed, ctx));
   });
 
+  it("i nuovi documenti usano la versione 2 dello schema", () => {
+    assert.equal(vault.seal(testo, ctx).v, 2);
+  });
+
+  it("i documenti cifrati con la versione 1 restano leggibili", () => {
+    const old = vault.seal(testo, ctx, 1);
+    assert.equal(old.v, 1);
+    assert.deepEqual(vault.open(old, ctx), testo);
+  });
+
+  it("cambiare la versione dichiarata nel documento fa fallire la decifratura", () => {
+    const sealed = vault.seal(testo, ctx);
+    assert.throws(() => vault.open({ ...sealed, v: 1 }, ctx));
+    assert.throws(() => vault.open({ ...sealed, v: 3 }, ctx), /non supportata/);
+  });
+
   it("basta che una sola delle due chiavi private sia sbagliata perché la decifratura fallisca", () => {
     const a = JSON.parse(vault.exportSecret().toString());
     const b = JSON.parse(Vault.generate().exportSecret().toString());

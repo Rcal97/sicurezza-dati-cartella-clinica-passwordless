@@ -18,8 +18,11 @@ import { aesOpen, aesSeal } from "./aead.js";
 // Un avversario deve rompere entrambi per leggere un referto: se uno dei due
 // cedesse, l'altro continuerebbe a proteggere i dati (cifratura ibrida).
 
-const VERSION = 1;
-const KEK_INFO = Buffer.from("cartella-clinica/kek/v1");
+// Versione dello schema. La v2 include nella derivazione anche le chiavi pubbliche del
+// destinatario, come raccomanda NIST SP 800-227 (par. 4.6.3) per i KEM ibridi; la v1
+// resta leggibile per i documenti già cifrati (agilità crittografica).
+const CURRENT_VERSION = 2;
+const SUPPORTED_VERSIONS = new Set([1, 2]);
 const b64 = (b: Buffer) => b.toString("base64");
 const unb64 = (s: string) => Buffer.from(s, "base64");
 
@@ -38,13 +41,26 @@ interface KeyPair {
   x25519: KeyObject;
 }
 
-// Combina i due segreti condivisi con HKDF-SHA256. Nell'info entra anche l'hash dei due
-// testi cifrati, così la KEK dipende da tutto ciò che è stato scambiato.
+// Combina i due segreti condivisi con HKDF-SHA256 (un KDF di SP 800-56C, quindi un
+// combinatore approvato da SP 800-227). Nell'info entra l'hash di tutto ciò che è stato
+// scambiato: i due testi cifrati e, dalla v2, le chiavi pubbliche del destinatario.
+// Anche il numero di versione entra nell'info: cambiarlo nel documento cambia la KEK.
 // (L'hash serve perché HKDF in Node accetta al massimo 1024 byte di info.)
-function deriveKek(mlkemSecret: Buffer, ecSecret: Buffer, kemCt: Buffer, ecCt: Buffer): Buffer {
+function deriveKek(
+  version: number,
+  mlkemSecret: Buffer,
+  ecSecret: Buffer,
+  kemCt: Buffer,
+  ecCt: Buffer,
+  recipient: KeyPair,
+): Buffer {
   const ikm = Buffer.concat([mlkemSecret, ecSecret]);
-  const transcript = createHash("sha256").update(kemCt).update(ecCt).digest();
-  const info = Buffer.concat([KEK_INFO, transcript]);
+  const transcript = createHash("sha256").update(kemCt).update(ecCt);
+  if (version >= 2) {
+    transcript.update(recipient.mlkem.export({ format: "der", type: "spki" }));
+    transcript.update(recipient.x25519.export({ format: "der", type: "spki" }));
+  }
+  const info = Buffer.concat([Buffer.from(`cartella-clinica/kek/v${version}`), transcript.digest()]);
   return Buffer.from(hkdfSync("sha256", ikm, Buffer.alloc(0), info, 32));
 }
 
@@ -92,20 +108,22 @@ export class Vault {
   }
 
   // Cifra un documento. "context" identifica documento e paziente e finisce nell'AAD.
-  seal(plaintext: Buffer, context: string): SealedDocument {
+  // "version" serve solo a produrre documenti delle versioni precedenti nei test.
+  seal(plaintext: Buffer, context: string, version = CURRENT_VERSION): SealedDocument {
+    if (!SUPPORTED_VERSIONS.has(version)) throw new Error(`Versione di cifratura non supportata: ${version}`);
     const aad = Buffer.from(context);
     const dek = randomBytes(32);
     const body = aesSeal(dek, plaintext, aad);
 
     const kem = encapsulate(this.publicKeys.mlkem);
     const ec = encapsulate(this.publicKeys.x25519);
-    const kek = deriveKek(kem.sharedKey, ec.sharedKey, kem.ciphertext, ec.ciphertext);
+    const kek = deriveKek(version, kem.sharedKey, ec.sharedKey, kem.ciphertext, ec.ciphertext, this.publicKeys);
     const wrapped = aesSeal(kek, dek, aad);
     dek.fill(0);
     kek.fill(0);
 
     return {
-      v: VERSION,
+      v: version,
       kemCiphertext: b64(kem.ciphertext),
       ecCiphertext: b64(ec.ciphertext),
       wrappedKey: b64(Buffer.concat([wrapped.iv, wrapped.ciphertext, wrapped.tag])),
@@ -117,15 +135,17 @@ export class Vault {
 
   // Decifra; lancia un errore se il documento, la chiave cifrata o il contesto sono stati alterati.
   open(sealed: SealedDocument, context: string): Buffer {
-    if (sealed.v !== VERSION) throw new Error(`Versione di cifratura non supportata: ${sealed.v}`);
+    if (!SUPPORTED_VERSIONS.has(sealed.v)) throw new Error(`Versione di cifratura non supportata: ${sealed.v}`);
     const aad = Buffer.from(context);
     const kemCt = unb64(sealed.kemCiphertext);
     const ecCt = unb64(sealed.ecCiphertext);
     const kek = deriveKek(
+      sealed.v,
       decapsulate(this.privateKeys.mlkem, kemCt),
       decapsulate(this.privateKeys.x25519, ecCt),
       kemCt,
       ecCt,
+      this.publicKeys,
     );
     const w = unb64(sealed.wrappedKey);
     const wrapped = { iv: w.subarray(0, 12), ciphertext: w.subarray(12, w.length - 16), tag: w.subarray(w.length - 16) };
