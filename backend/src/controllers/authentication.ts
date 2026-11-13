@@ -10,7 +10,7 @@ import type { Store } from "../models/store.js";
 import { USERNAME } from "./registration.js";
 
 // Challenge contenuta nella risposta dell'autenticatore, oppure null se il formato non è valido.
-function challengeOf(response: { response?: { clientDataJSON?: unknown } }): string | null {
+export function challengeOf(response: { response?: { clientDataJSON?: unknown } }): string | null {
   const data = response.response?.clientDataJSON;
   if (typeof data !== "string" || data.length > 4096) return null;
   try {

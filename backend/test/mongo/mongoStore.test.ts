@@ -7,6 +7,7 @@ import { MongoClient } from "mongodb";
 import { Wallet } from "ethers";
 import { createApp } from "../../src/app.js";
 import { openAccessLog, openDocument, sealAccessLog, sealDocument } from "../../src/crypto/records.js";
+import { challengeFor, newPayload } from "../../src/crypto/signature.js";
 import { Vault } from "../../src/crypto/vault.js";
 import { config, mongoUrl } from "../../src/config.js";
 import { MemoryLedger } from "../../src/models/memoryLedger.js";
@@ -35,6 +36,7 @@ after(async () => {
   await db.collection("sessions").deleteMany({ username: prefix });
   await db.collection("challenges").deleteMany({ _id: { $regex: `:it\\.${run}\\.` } } as never);
   await db.collection("invitations").deleteMany({ username: prefix });
+  await db.collection("challenges").deleteMany({ "signature.username": prefix } as never);
   await db.collection("profiles").deleteMany({ _id: prefix } as never);
   await db.collection("access_log").deleteMany({ recordHash: { $in: createdLogs } });
   await db.collection("documents").deleteMany({ patient: prefix });
@@ -239,5 +241,17 @@ describe("MongoStore (MongoDB reale)", () => {
     assert.deepEqual(docs.map((d) => openDocument(vault, d).title), ["Emocromo", "RX torace"]);
     const raw = await admin.db().collection("documents").findOne({ _id: first.id } as never);
     assert.ok(!JSON.stringify(raw).includes("Emocromo"));
+  });
+
+  it("una richiesta di firma è consumata una sola volta e solo dal medico che l'ha aperta", async () => {
+    const payload = newPayload(name("paz"), name("medico"), "Titolo", "Testo");
+    const challenge = challengeFor(payload);
+    await store.saveSignatureRequest(challenge, { username: name("medico"), payload }, config.challengeTtlMs);
+    assert.equal(await store.takeSignatureRequest(challenge, name("intruso")), null);
+    const results = await Promise.all([
+      store.takeSignatureRequest(challenge, name("medico")),
+      store.takeSignatureRequest(challenge, name("medico")),
+    ]);
+    assert.equal(results.filter((r) => r !== null).length, 1);
   });
 });

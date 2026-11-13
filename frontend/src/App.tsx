@@ -7,6 +7,7 @@ import {
   type PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser";
 import { api } from "./api";
+import PannelloCartella from "./Cartella";
 
 type Messaggio = { tipo: "ok" | "errore"; testo: string } | null;
 type Passkey = { id: string; transports: string[] };
@@ -118,7 +119,7 @@ export default function App() {
   }
 
   return (
-    <main className="scheda">
+    <main className={utente ? "scheda larga" : "scheda"}>
       <h1>Cartella clinica</h1>
       {utente ? (
         <>
@@ -147,6 +148,7 @@ export default function App() {
           <button className="secondario" onClick={esciOvunque} disabled={inCorso}>
             Esci da tutti i dispositivi
           </button>
+          <PannelloCartella />
         </>
       ) : (
         <>

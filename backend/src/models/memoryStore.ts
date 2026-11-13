@@ -1,11 +1,12 @@
 import type { WebAuthnCredential } from "@simplewebauthn/server";
-import type { AccessLogEntry, PendingRegistration, Profile, Store, StoredDocument, User } from "./store.js";
+import type { AccessLogEntry, PendingRegistration, Profile, SignatureRequest, Store, StoredDocument, User } from "./store.js";
 
 // Implementazione in memoria: usata dai test, non conserva nulla tra un avvio e l'altro.
 export class MemoryStore implements Store {
   private readonly users = new Map<string, User>();
   private readonly registrations = new Map<string, PendingRegistration & { expiresAt: number }>();
   private readonly logins = new Map<string, number>(); // challenge -> scadenza
+  private readonly signatures = new Map<string, SignatureRequest & { expiresAt: number }>();
   private readonly sessions = new Map<string, { username: string; expiresAt: number; absoluteExpiresAt: number }>();
   private readonly invitations = new Map<string, { username: string; expiresAt: number }>();
   private readonly profiles = new Map<string, Profile>();
@@ -47,6 +48,18 @@ export class MemoryStore implements Store {
 
   async saveLoginChallenge(challenge: string, ttlMs: number): Promise<void> {
     this.logins.set(challenge, Date.now() + ttlMs);
+  }
+
+  async saveSignatureRequest(challenge: string, request: SignatureRequest, ttlMs: number): Promise<void> {
+    this.signatures.set(challenge, { ...request, expiresAt: Date.now() + ttlMs });
+  }
+
+  async takeSignatureRequest(challenge: string, username: string): Promise<SignatureRequest | null> {
+    const entry = this.signatures.get(challenge);
+    if (entry?.username !== username) return null;
+    this.signatures.delete(challenge);
+    if (!entry || entry.expiresAt < Date.now()) return null;
+    return { username: entry.username, payload: entry.payload };
   }
 
   async takeLoginChallenge(challenge: string): Promise<boolean> {

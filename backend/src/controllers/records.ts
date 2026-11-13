@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { Request, Response } from "express";
 import { fingerprint, openDocument, sealAccessLog } from "../crypto/records.js";
+import { verifyDocumentSignature } from "../crypto/signature.js";
 import type { Vault } from "../crypto/vault.js";
 import { LedgerRevert, Outcome, Purpose, type Ledger } from "../models/ledger.js";
 import type { AccessDetails, Profile, Store } from "../models/store.js";
@@ -16,7 +17,7 @@ const PURPOSES = new Map<string, Purpose>([
 
 const nonce = (): string => randomBytes(16).toString("hex");
 
-interface Parties {
+export interface Parties {
   requester: string;
   doctor: Profile;
   patientName: string;
@@ -24,7 +25,7 @@ interface Parties {
 }
 
 // Controlli comuni: chi chiede deve essere un medico, il paziente deve esistere.
-async function parties(store: Store, req: Request, res: Response): Promise<Parties | null> {
+export async function parties(store: Store, req: Request, res: Response): Promise<Parties | null> {
   const requester: string = res.locals.username;
   const doctor = await store.getProfile(requester);
   if (doctor?.role !== "doctor") {
@@ -49,15 +50,29 @@ export function recordsController(store: Store, ledger: Ledger, vault: Vault) {
   // Cartella consegnata al medico autorizzato: i referti sono decifrati solo ora,
   // in memoria, e solo dopo che l'accesso è stato registrato sulla catena.
   async function record(patient: string, entryId: bigint) {
-    const documents = (await store.listDocuments(patient)).map((doc) => {
-      try {
-        return { id: doc.id, createdAt: doc.createdAt, ...openDocument(vault, doc) };
-      } catch {
-        // AES-GCM ha rilevato un'alterazione: il documento non viene consegnato.
-        console.error(`Referto ${doc.id} alterato o non decifrabile`);
-        return { id: doc.id, createdAt: doc.createdAt, error: "integrità non verificata" };
-      }
-    });
+    const documents = await Promise.all(
+      (await store.listDocuments(patient)).map(async (doc) => {
+        let content;
+        try {
+          content = openDocument(vault, doc);
+        } catch {
+          // AES-GCM ha rilevato un'alterazione: il documento non viene consegnato.
+          console.error(`Referto ${doc.id} alterato o non decifrabile`);
+          return { id: doc.id, createdAt: doc.createdAt, error: "integrità non verificata" };
+        }
+        // La firma si verifica a ogni consegna; al medico arrivano autore, data ed esito,
+        // non i dati grezzi della firma.
+        const sig = content.signature;
+        const signature = sig
+          ? {
+              author: sig.author,
+              signedAt: sig.signedAt,
+              valid: await verifyDocumentSignature(patient, content.title, content.body, sig),
+            }
+          : null;
+        return { id: doc.id, createdAt: doc.createdAt, title: content.title, body: content.body, signature };
+      }),
+    );
     return { patient, auditEntry: entryId.toString(), documents };
   }
 

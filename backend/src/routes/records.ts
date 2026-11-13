@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { rateLimit } from "../middleware/security.js";
+import { documentsController } from "../controllers/documents.js";
 import { recordsController } from "../controllers/records.js";
 import { requireSession } from "../middleware/session.js";
 import type { Vault } from "../crypto/vault.js";
@@ -16,5 +17,10 @@ export function recordsRoutes(store: Store, ledger: Ledger, vault: Vault, limits
   router.use(rateLimit(limits.max, (_req, res) => res.locals.username as string));
   router.post("/access", records.access);
   router.post("/emergency", records.emergency);
+
+  // Referti scritti dal medico e firmati con la sua passkey.
+  const documents = documentsController(store, ledger, vault);
+  router.post("/documents/options", documents.options);
+  router.post("/documents/verify", documents.verify);
   return router;
 }

@@ -1,18 +1,20 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { AccessDetails, AccessLogEntry, StoredDocument } from "../models/store.js";
+import type { DocumentSignature } from "./signature.js";
 import type { Vault } from "./vault.js";
 
 // Contenuto di un referto, cifrato per intero: anche il titolo è un dato sanitario.
+// I referti scritti da un medico portano la sua firma; quelli caricati dal laboratorio no.
 export interface DocumentContent {
   title: string;
   body: string;
+  signature?: DocumentSignature;
 }
 
 // Il contesto lega il testo cifrato a un documento e a un paziente (AAD di AES-GCM).
 const context = (id: string, patient: string) => `${id}|${patient}`;
 
-export function sealDocument(vault: Vault, patient: string, content: DocumentContent): StoredDocument {
-  const id = randomUUID();
+export function sealDocument(vault: Vault, patient: string, content: DocumentContent, id = randomUUID()): StoredDocument {
   const sealed = vault.seal(Buffer.from(JSON.stringify(content)), context(id, patient));
   return { id, patient, createdAt: new Date().toISOString(), sealed };
 }

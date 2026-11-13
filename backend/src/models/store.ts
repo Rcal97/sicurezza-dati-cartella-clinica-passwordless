@@ -1,4 +1,5 @@
 import type { WebAuthnCredential } from "@simplewebauthn/server";
+import type { SignedPayload } from "../crypto/signature.js";
 import type { SealedDocument } from "../crypto/vault.js";
 
 // Model dell'architettura MVC: l'unico punto di accesso ai dati off-chain.
@@ -35,6 +36,14 @@ export type AccessDetails =
       nonce: string;
     }
   | {
+      kind: "document-signed";
+      requester: string;
+      patient: string;
+      documentId: string;
+      at: string;
+      nonce: string;
+    }
+  | {
       // "emergency-rejected": tentativo respinto dal contratto, che non lascia traccia
       // sulla catena; resta però nel registro off-chain.
       kind: "emergency" | "emergency-rejected";
@@ -62,6 +71,11 @@ export interface StoredDocument {
   sealed: SealedDocument;
 }
 
+export interface SignatureRequest {
+  username: string; // il medico che ha chiesto di firmare
+  payload: SignedPayload;
+}
+
 export interface Store {
   getUser(username: string): Promise<User | null>;
   // Aggiunge una credenziale all'utente (creandolo se serve).
@@ -78,6 +92,10 @@ export interface Store {
   // chi chiede opzioni per un altro utente non può invalidare la sua challenge.
   saveLoginChallenge(challenge: string, ttlMs: number): Promise<void>;
   takeLoginChallenge(challenge: string): Promise<boolean>;
+  // Richieste di firma di un referto: la challenge è l'impronta del contenuto da firmare.
+  saveSignatureRequest(challenge: string, request: SignatureRequest, ttlMs: number): Promise<void>;
+  // Consumata solo dal medico che l'ha aperta: un altro utente non può invalidarla.
+  takeSignatureRequest(challenge: string, username: string): Promise<SignatureRequest | null>;
 
   // Inviti alla registrazione, rilasciati dopo l'identificazione dell'utente (identity proofing).
   // Sono legati a uno username, monouso e indicizzati dall'hash del codice.

@@ -12,7 +12,9 @@ body {
 }
 
 .scheda {
-  width: min(380px, 100% - 32px);
+  /* La larghezza comprende il padding: su uno schermo stretto la scheda non sborda. */
+  box-sizing: border-box;
+  width: min(420px, 100vw - 32px);
   padding: 32px;
   background: #fff;
   border: 1px solid #d5ddda;
@@ -31,7 +33,9 @@ label {
   font-weight: 600;
 }
 
-input {
+input,
+select,
+textarea {
   width: 100%;
   box-sizing: border-box;
   padding: 10px;
@@ -101,4 +105,28 @@ ul.passkey li {
 ul.passkey button {
   margin-left: auto;
   padding: 4px 10px;
+}
+
+.scheda.larga {
+  width: min(700px, 100vw - 32px);
+}
+
+textarea {
+  resize: vertical;
+}
+
+ul.referti {
+  margin: 8px 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+ul.referti li {
+  padding: 10px 0;
+  border-bottom: 1px solid #e3e9e7;
+}
+
+ul.referti p {
+  margin: 4px 0;
+  white-space: pre-wrap;
 }

@@ -19,6 +19,7 @@ export default defineConfig({
     proxy: {
       "/webauthn": "http://127.0.0.1:3000",
       "/session": "http://127.0.0.1:3000",
+      "/records": "http://127.0.0.1:3000",
     },
   },
 });

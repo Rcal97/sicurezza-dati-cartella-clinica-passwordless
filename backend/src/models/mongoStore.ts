@@ -1,6 +1,6 @@
 import { Binary, MongoClient, MongoServerError, type Collection, type Db } from "mongodb";
 import type { WebAuthnCredential } from "@simplewebauthn/server";
-import type { AccessLogEntry, PendingRegistration, Profile, Role, Store, StoredDocument, User } from "./store.js";
+import type { AccessLogEntry, PendingRegistration, Profile, Role, SignatureRequest, Store, StoredDocument, User } from "./store.js";
 
 interface CredentialDoc {
   id: string;
@@ -14,9 +14,10 @@ interface UserDoc {
   credentials: CredentialDoc[];
 }
 interface ChallengeDoc {
-  _id: string; // "registrazione:<username>" oppure "login:<challenge>"
+  _id: string; // "registrazione:<username>", "login:<challenge>" oppure "firma:<challenge>"
   challenge?: string;
   webauthnUserID?: string;
+  signature?: SignatureRequest;
   expiresAt: Date;
 }
 interface SessionDoc {
@@ -154,6 +155,16 @@ export class MongoStore implements Store {
 
   async saveLoginChallenge(challenge: string, ttlMs: number): Promise<void> {
     await this.challenges.insertOne({ _id: `login:${challenge}`, expiresAt: new Date(Date.now() + ttlMs) });
+  }
+
+  async saveSignatureRequest(challenge: string, request: SignatureRequest, ttlMs: number): Promise<void> {
+    await this.challenges.insertOne({ _id: `firma:${challenge}`, signature: request, expiresAt: new Date(Date.now() + ttlMs) });
+  }
+
+  async takeSignatureRequest(challenge: string, username: string): Promise<SignatureRequest | null> {
+    const doc = await this.challenges.findOneAndDelete({ _id: `firma:${challenge}`, "signature.username": username });
+    if (!doc || doc.expiresAt.getTime() < Date.now() || !doc.signature) return null;
+    return doc.signature;
   }
 
   async takeLoginChallenge(challenge: string): Promise<boolean> {

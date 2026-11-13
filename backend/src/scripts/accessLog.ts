@@ -32,9 +32,11 @@ try {
     const what =
       d.kind === "ordinary"
         ? `accesso ${d.outcome === "granted" ? "CONCESSO" : "NEGATO"} per finalità ${d.purpose}`
-        : d.kind === "emergency"
-          ? `ACCESSO D'EMERGENZA, motivazione: "${d.reason}"`
-          : `TENTATIVO D'EMERGENZA RESPINTO, motivazione: "${d.reason}"`;
+        : d.kind === "document-signed"
+          ? `REFERTO FIRMATO E AGGIUNTO (documento ${d.documentId})`
+          : d.kind === "emergency"
+            ? `ACCESSO D'EMERGENZA, motivazione: "${d.reason}"`
+            : `TENTATIVO D'EMERGENZA RESPINTO, motivazione: "${d.reason}"`;
     console.log(`${d.at}  ${d.requester} -> ${d.patient}: ${what} (${onChain})`);
   }
 } finally {
