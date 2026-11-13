@@ -5,7 +5,7 @@ import type { AccessLogEntry, PendingRegistration, Profile, Store, StoredDocumen
 export class MemoryStore implements Store {
   private readonly users = new Map<string, User>();
   private readonly registrations = new Map<string, PendingRegistration & { expiresAt: number }>();
-  private readonly logins = new Map<string, { challenge: string; expiresAt: number }>();
+  private readonly logins = new Map<string, number>(); // challenge -> scadenza
   private readonly sessions = new Map<string, { username: string; expiresAt: number }>();
   private readonly invitations = new Map<string, { username: string; expiresAt: number }>();
   private readonly profiles = new Map<string, Profile>();
@@ -27,9 +27,11 @@ export class MemoryStore implements Store {
     return "ok" as const;
   }
 
-  async updateCounter(username: string, credentialID: string, counter: number): Promise<void> {
+  async updateCounter(username: string, credentialID: string, expected: number, counter: number): Promise<boolean> {
     const credential = this.users.get(username)?.credentials.find((c) => c.id === credentialID);
-    if (credential) credential.counter = counter;
+    if (!credential || credential.counter !== expected) return false;
+    credential.counter = counter;
+    return true;
   }
 
   async savePendingRegistration(username: string, pending: PendingRegistration, ttlMs: number): Promise<void> {
@@ -43,15 +45,14 @@ export class MemoryStore implements Store {
     return { challenge: entry.challenge, webauthnUserID: entry.webauthnUserID };
   }
 
-  async saveLoginChallenge(username: string, challenge: string, ttlMs: number): Promise<void> {
-    this.logins.set(username, { challenge, expiresAt: Date.now() + ttlMs });
+  async saveLoginChallenge(challenge: string, ttlMs: number): Promise<void> {
+    this.logins.set(challenge, Date.now() + ttlMs);
   }
 
-  async takeLoginChallenge(username: string): Promise<string | null> {
-    const entry = this.logins.get(username);
-    this.logins.delete(username);
-    if (!entry || entry.expiresAt < Date.now()) return null;
-    return entry.challenge;
+  async takeLoginChallenge(challenge: string): Promise<boolean> {
+    const expiresAt = this.logins.get(challenge);
+    this.logins.delete(challenge);
+    return expiresAt !== undefined && expiresAt >= Date.now();
   }
 
   async createInvitation(codeHash: string, username: string, ttlMs: number): Promise<void> {

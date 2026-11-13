@@ -14,8 +14,8 @@ interface UserDoc {
   credentials: CredentialDoc[];
 }
 interface ChallengeDoc {
-  _id: string; // "registrazione:<username>" oppure "login:<username>"
-  challenge: string;
+  _id: string; // "registrazione:<username>" oppure "login:<challenge>"
+  challenge?: string;
   webauthnUserID?: string;
   expiresAt: Date;
 }
@@ -126,11 +126,14 @@ export class MongoStore implements Store {
     }
   }
 
-  async updateCounter(username: string, credentialID: string, counter: number): Promise<void> {
-    await this.users.updateOne(
-      { _id: username, "credentials.id": credentialID },
+  async updateCounter(username: string, credentialID: string, expected: number, counter: number): Promise<boolean> {
+    // Il filtro include il valore atteso: l'aggiornamento riesce solo se nessun altro login
+    // ha cambiato il contatore nel frattempo ($elemMatch: stessa credenziale, stesso valore).
+    const result = await this.users.updateOne(
+      { _id: username, credentials: { $elemMatch: { id: credentialID, counter: expected } } },
       { $set: { "credentials.$.counter": counter } },
     );
+    return result.modifiedCount === 1 || (result.matchedCount === 1 && expected === counter);
   }
 
   async savePendingRegistration(username: string, pending: PendingRegistration, ttlMs: number): Promise<void> {
@@ -144,22 +147,17 @@ export class MongoStore implements Store {
   async takePendingRegistration(username: string): Promise<PendingRegistration | null> {
     // Lettura e cancellazione atomiche: due richieste parallele non possono usare la stessa challenge.
     const doc = await this.challenges.findOneAndDelete({ _id: `registrazione:${username}` });
-    if (!doc || doc.expiresAt.getTime() < Date.now() || !doc.webauthnUserID) return null;
+    if (!doc || doc.expiresAt.getTime() < Date.now() || !doc.challenge || !doc.webauthnUserID) return null;
     return { challenge: doc.challenge, webauthnUserID: doc.webauthnUserID };
   }
 
-  async saveLoginChallenge(username: string, challenge: string, ttlMs: number): Promise<void> {
-    await this.challenges.replaceOne(
-      { _id: `login:${username}` },
-      { challenge, expiresAt: new Date(Date.now() + ttlMs) },
-      { upsert: true },
-    );
+  async saveLoginChallenge(challenge: string, ttlMs: number): Promise<void> {
+    await this.challenges.insertOne({ _id: `login:${challenge}`, expiresAt: new Date(Date.now() + ttlMs) });
   }
 
-  async takeLoginChallenge(username: string): Promise<string | null> {
-    const doc = await this.challenges.findOneAndDelete({ _id: `login:${username}` });
-    if (!doc || doc.expiresAt.getTime() < Date.now()) return null;
-    return doc.challenge;
+  async takeLoginChallenge(challenge: string): Promise<boolean> {
+    const doc = await this.challenges.findOneAndDelete({ _id: `login:${challenge}` });
+    return doc !== null && doc.expiresAt.getTime() >= Date.now();
   }
 
   async createInvitation(codeHash: string, username: string, ttlMs: number): Promise<void> {

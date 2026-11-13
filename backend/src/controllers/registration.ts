@@ -48,7 +48,9 @@ export function registrationController(store: Store) {
         userID: user ? isoBase64URL.toBuffer(user.webauthnUserID) : undefined,
         attestationType: "none",
         excludeCredentials: user?.credentials.map((c) => ({ id: c.id, transports: c.transports })) ?? [],
-        authenticatorSelection: { residentKey: "preferred", userVerification: "required" },
+        // Passkey individuabile dal dispositivo (resident key): serve al login senza
+        // elenco delle credenziali, che altrimenti rivelerebbe quali utenti esistono.
+        authenticatorSelection: { residentKey: "required", userVerification: "required" },
       });
 
       await store.savePendingRegistration(

@@ -9,6 +9,18 @@ import { SESSION_COOKIE, cookieOptions, hashToken, newSessionToken } from "../mi
 import type { Store } from "../models/store.js";
 import { USERNAME } from "./registration.js";
 
+// Challenge contenuta nella risposta dell'autenticatore, oppure null se il formato non è valido.
+function challengeOf(response: { response?: { clientDataJSON?: unknown } }): string | null {
+  const data = response.response?.clientDataJSON;
+  if (typeof data !== "string" || data.length > 4096) return null;
+  try {
+    const challenge = JSON.parse(Buffer.from(data, "base64url").toString("utf8")).challenge;
+    return typeof challenge === "string" ? challenge : null;
+  } catch {
+    return null;
+  }
+}
+
 // Controller del login con passkey.
 export function authenticationController(store: Store) {
   return {
@@ -19,16 +31,16 @@ export function authenticationController(store: Store) {
         return;
       }
 
-      // Anche per un utente inesistente rispondiamo con delle opzioni,
-      // così l'errore arriva solo alla verifica (limita la user enumeration).
-      const user = await store.getUser(username);
+      // Le opzioni sono identiche per qualsiasi username: niente elenco delle credenziali
+      // (allowCredentials vuoto), è il dispositivo a proporre le passkey che conserva.
+      // Così la risposta non rivela se l'utente esiste (user enumeration).
       const options = await generateAuthenticationOptions({
         rpID: config.rpID,
-        allowCredentials: user?.credentials.map((c) => ({ id: c.id, transports: c.transports })) ?? [],
+        allowCredentials: [],
         userVerification: "required",
       });
 
-      await store.saveLoginChallenge(username, options.challenge, config.challengeTtlMs);
+      await store.saveLoginChallenge(options.challenge, config.challengeTtlMs);
       res.json(options);
     },
 
@@ -40,8 +52,10 @@ export function authenticationController(store: Store) {
         return;
       }
 
-      const challenge = await store.takeLoginChallenge(username);
-      if (!challenge) {
+      // La challenge si legge dai dati firmati dal browser (clientDataJSON) e si consuma
+      // in modo atomico: vale una sola volta ed era stata emessa da questo server.
+      const challenge = challengeOf(response);
+      if (!challenge || !(await store.takeLoginChallenge(challenge))) {
         res.status(400).json({ error: "challenge assente o scaduta" });
         return;
       }
@@ -52,6 +66,9 @@ export function authenticationController(store: Store) {
         res.status(401).json({ error: "autenticazione non valida" });
         return;
       }
+      // Valore del contatore letto ora, prima della verifica: è quello che ci aspettiamo
+      // di trovare ancora nel database al momento dell'aggiornamento.
+      const expectedCounter = credential.counter;
 
       let verification;
       try {
@@ -74,8 +91,19 @@ export function authenticationController(store: Store) {
         return;
       }
 
-      // Salviamo il nuovo signCount: un clone che riusa un valore vecchio verrà rifiutato.
-      await store.updateCounter(username, credential.id, verification.authenticationInfo.newCounter);
+      // Salviamo il nuovo signCount solo se nessun altro login lo ha cambiato nel frattempo:
+      // un clone usato in parallelo all'originale viene rifiutato.
+      const updated = await store.updateCounter(
+        username,
+        credential.id,
+        expectedCounter,
+        verification.authenticationInfo.newCounter,
+      );
+      if (!updated) {
+        console.warn(`Login rifiutato per ${username}: uso contemporaneo della stessa credenziale`);
+        res.status(401).json({ error: "autenticazione non valida" });
+        return;
+      }
 
       // Login riuscito: un token nuovo a ogni accesso (niente session fixation).
       const token = newSessionToken();

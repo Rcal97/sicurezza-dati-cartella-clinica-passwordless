@@ -22,7 +22,8 @@ let server: Server;
 let baseUrl: string;
 
 before(async () => {
-  server = createApp(store, ledger, vault).listen(0);
+  // Molti utenti registrati dallo stesso indirizzo: limite di frequenza alto.
+  server = createApp(store, ledger, vault, { maxRequestsPerMinute: 10_000 }).listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });

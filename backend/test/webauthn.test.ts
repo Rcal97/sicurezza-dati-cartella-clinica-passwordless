@@ -70,10 +70,11 @@ describe("FIDO2: attacchi", () => {
     const captured = auth.authenticate(options.body, config.origin);
     assert.equal((await post("/authenticate/verify", { username: "dario.gallo", response: captured })).status, 200);
 
-    // L'attaccante ha intercettato la risposta e la rimanda su una nuova sessione.
+    // L'attaccante ha intercettato la risposta e la rimanda: la challenge che contiene
+    // è già stata consumata, quindi viene respinta prima ancora di verificare la firma.
     await post("/authenticate/options", { username: "dario.gallo" });
     const replay = await post("/authenticate/verify", { username: "dario.gallo", response: captured });
-    assert.equal(replay.status, 401);
+    assert.equal(replay.status, 400);
   });
 
   it("phishing: una registrazione da un origin diverso viene rifiutata", async () => {

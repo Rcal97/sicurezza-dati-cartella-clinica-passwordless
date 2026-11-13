@@ -42,6 +42,22 @@ describe("File delle chiavi protetto da passphrase (Argon2id)", () => {
     assert.throws(() => readKeyFile(altered, passphrase));
   });
 
+  it("parametri di Argon2id fuori dai limiti vengono rifiutati prima di calcolarli", () => {
+    const file = JSON.parse(readFileSync(path, "utf8"));
+    for (const kdf of [
+      { ...file.kdf, memory: 64 * 1024 * 1024 }, // 64 GiB: bloccherebbe l'avvio
+      { ...file.kdf, passes: 1_000_000 },
+      { ...file.kdf, memory: 8 }, // troppo bassa: derivazione inutile
+      { ...file.kdf, name: "pbkdf2" },
+    ]) {
+      const altered = join(dir, `kdf-${Math.random()}.key`);
+      writeFileSync(altered, JSON.stringify({ ...file, kdf }));
+      const start = Date.now();
+      assert.throws(() => readKeyFile(altered, passphrase), /non valido/);
+      assert.ok(Date.now() - start < 50, "il file va rifiutato subito, senza eseguire Argon2id");
+    }
+  });
+
   it("un file esistente non viene sovrascritto", () => {
     assert.throws(() => writeKeyFile(path, Vault.generate(), passphrase));
   });

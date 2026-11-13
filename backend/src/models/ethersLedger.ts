@@ -1,5 +1,6 @@
 import {
   Contract,
+  HDNodeWallet,
   JsonRpcProvider,
   Wallet,
   type ContractTransactionResponse,
@@ -22,6 +23,23 @@ const AUDIT_ABI = [
   "error MissingReason()",
   "error AccessControlUnauthorizedAccount(address account, bytes32 neededRole)",
 ];
+
+// Gli account di sviluppo di Hardhat derivano da una frase mnemonica pubblicata nella
+// documentazione: chiunque ne conosce le chiavi private. Vanno bene solo sulla rete locale.
+const HARDHAT_MNEMONIC = "test test test test test test test test test test test junk";
+const LOCAL_CHAIN_ID = 31337n;
+const DEV_ADDRESSES = new Set(
+  Array.from({ length: 20 }, (_, i) =>
+    HDNodeWallet.fromPhrase(HARDHAT_MNEMONIC, undefined, `m/44'/60'/0'/0/${i}`).address,
+  ),
+);
+
+// Rifiuta una chiave di sviluppo su una rete che non sia quella locale.
+export function assertSafeKey(address: string, chainId: bigint): void {
+  if (chainId !== LOCAL_CHAIN_ID && DEV_ADDRESSES.has(address)) {
+    throw new Error(`La chiave ${address} è una chiave pubblica di Hardhat: non si usa sulla rete ${chainId}`);
+  }
+}
 
 export interface LedgerConfig {
   rpcUrl: string;
@@ -51,6 +69,12 @@ export class EthersLedger implements Ledger {
       }
     }
     const signer = new Wallet(cfg.privateKey, provider);
+    try {
+      assertSafeKey(signer.address, (await provider.getNetwork()).chainId);
+    } catch (err) {
+      provider.destroy();
+      throw err;
+    }
     return new EthersLedger(
       provider,
       new Contract(cfg.consentRegistry, CONSENT_ABI, provider),

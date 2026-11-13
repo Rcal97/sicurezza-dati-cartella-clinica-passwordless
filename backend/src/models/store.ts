@@ -62,13 +62,17 @@ export interface Store {
   // Aggiunge una credenziale all'utente (creandolo se serve).
   // Restituisce "duplicate" se l'ID della credenziale è già registrato.
   addCredential(username: string, webauthnUserID: string, credential: WebAuthnCredential): Promise<"ok" | "duplicate">;
-  updateCounter(username: string, credentialID: string, counter: number): Promise<void>;
+  // Aggiorna il contatore solo se vale ancora "expected" (compare-and-set): due login
+  // contemporanei con lo stesso valore, come quelli di una chiave clonata, non passano entrambi.
+  updateCounter(username: string, credentialID: string, expected: number, counter: number): Promise<boolean>;
 
   // Challenge monouso: "take" le legge e le cancella in un'unica operazione.
   savePendingRegistration(username: string, pending: PendingRegistration, ttlMs: number): Promise<void>;
   takePendingRegistration(username: string): Promise<PendingRegistration | null>;
-  saveLoginChallenge(username: string, challenge: string, ttlMs: number): Promise<void>;
-  takeLoginChallenge(username: string): Promise<string | null>;
+  // Le challenge di login sono indicizzate dal loro valore e non dallo username:
+  // chi chiede opzioni per un altro utente non può invalidare la sua challenge.
+  saveLoginChallenge(challenge: string, ttlMs: number): Promise<void>;
+  takeLoginChallenge(challenge: string): Promise<boolean>;
 
   // Inviti alla registrazione, rilasciati dopo l'identificazione dell'utente (identity proofing).
   // Sono legati a uno username, monouso e indicizzati dall'hash del codice.

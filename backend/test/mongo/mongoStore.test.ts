@@ -125,15 +125,28 @@ describe("MongoStore (MongoDB reale)", () => {
   });
 
   it("una challenge si usa una sola volta", async () => {
-    await store.saveLoginChallenge(name("fabio"), "challenge-di-prova", config.challengeTtlMs);
-    assert.equal(await store.takeLoginChallenge(name("fabio")), "challenge-di-prova");
-    assert.equal(await store.takeLoginChallenge(name("fabio")), null);
+    await store.saveLoginChallenge(name("challenge-di-prova"), config.challengeTtlMs);
+    assert.equal(await store.takeLoginChallenge(name("challenge-di-prova")), true);
+    assert.equal(await store.takeLoginChallenge(name("challenge-di-prova")), false);
   });
 
   it("due richieste parallele non possono usare la stessa challenge", async () => {
-    await store.saveLoginChallenge(name("gina"), "challenge-condivisa", config.challengeTtlMs);
-    const results = await Promise.all([store.takeLoginChallenge(name("gina")), store.takeLoginChallenge(name("gina"))]);
-    assert.equal(results.filter((r) => r !== null).length, 1);
+    await store.saveLoginChallenge(name("challenge-condivisa"), config.challengeTtlMs);
+    const c = name("challenge-condivisa");
+    const results = await Promise.all([store.takeLoginChallenge(c), store.takeLoginChallenge(c)]);
+    assert.equal(results.filter((r) => r).length, 1);
+  });
+
+  it("il contatore si aggiorna solo se nessuno lo ha cambiato nel frattempo", async () => {
+    const credential = { id: `cred-cas-${run}`, publicKey: new Uint8Array([1, 2, 3]), counter: 5 };
+    await store.addCredential(name("cas"), "uid-cas", credential);
+    // Due login paralleli che hanno letto entrambi il valore 5: ne passa uno solo.
+    const results = await Promise.all([
+      store.updateCounter(name("cas"), credential.id, 5, 6),
+      store.updateCounter(name("cas"), credential.id, 5, 6),
+    ]);
+    assert.deepEqual(results.sort(), [false, true]);
+    assert.equal((await store.getUser(name("cas")))?.credentials[0]?.counter, 6);
   });
 
   it("un invito non può essere usato da due registrazioni parallele", async () => {

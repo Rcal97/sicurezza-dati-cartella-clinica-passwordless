@@ -64,9 +64,22 @@ export function writeKeyFile(path: string, vault: Vault, passphrase: string): vo
   writeFileSync(path, JSON.stringify(file, null, 2) + "\n", { mode: 0o600, flag: "wx" });
 }
 
+// Parametri di Argon2id accettati in lettura: un file manipolato non deve poter imporre
+// costi enormi (blocco all'avvio) né costi troppo bassi da rendere inutile la derivazione.
+function validKdf(k: KeyFile["kdf"]): boolean {
+  const inRange = (v: unknown, min: number, max: number) => Number.isInteger(v) && (v as number) >= min && (v as number) <= max;
+  return (
+    k?.name === "argon2id" &&
+    inRange(k.memory, 19 * 1024, 1024 * 1024) && // da 19 MiB (minimo OWASP) a 1 GiB
+    inRange(k.passes, 2, 10) &&
+    inRange(k.parallelism, 1, 16) &&
+    typeof k.salt === "string"
+  );
+}
+
 export function readKeyFile(path: string, passphrase: string): Vault {
   const file: KeyFile = JSON.parse(readFileSync(path, "utf8"));
-  if (file.v !== 1 || file.kdf.name !== "argon2id") throw new Error(`File delle chiavi non valido: ${path}`);
+  if (file.v !== 1 || !validKdf(file.kdf)) throw new Error(`File delle chiavi non valido: ${path}`);
   const key = passphraseKey(passphrase, unb64(file.kdf.salt), file.kdf);
   let secret: Buffer;
   try {
