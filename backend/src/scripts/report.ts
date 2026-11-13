@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { archiveKeyFile, mongoUrl } from "../config.js";
 import { USERNAME } from "../controllers/registration.js";
 import { sealDocument } from "../crypto/records.js";
-import { Vault } from "../crypto/vault.js";
+import { readKeyFile } from "../crypto/keyfile.js";
+import { unlockOrExit } from "./prompt.js";
 import { MongoStore } from "../models/mongoStore.js";
 
 // Carica un referto nella cartella di un paziente, cifrandolo prima di salvarlo.
@@ -14,6 +15,7 @@ if (!patient || !USERNAME.test(patient) || !title || !file) {
   process.exit(1);
 }
 
+const vault = await unlockOrExit((p) => readKeyFile(archiveKeyFile(), p));
 const store = await MongoStore.connect(mongoUrl());
 try {
   const profile = await store.getProfile(patient);
@@ -21,7 +23,7 @@ try {
     console.error(`${patient} non è un paziente registrato.`);
     process.exit(1);
   }
-  const doc = sealDocument(Vault.load(archiveKeyFile()), patient, {
+  const doc = sealDocument(vault, patient, {
     title,
     body: readFileSync(file, "utf8"),
   });

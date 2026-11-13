@@ -1,6 +1,4 @@
 import {
-  createCipheriv,
-  createDecipheriv,
   createHash,
   createPrivateKey,
   createPublicKey,
@@ -11,7 +9,7 @@ import {
   randomBytes,
   type KeyObject,
 } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { aesOpen, aesSeal } from "./aead.js";
 
 // Cifratura dei referti a riposo, con uno schema a busta (envelope encryption):
 // - ogni documento è cifrato con una propria chiave casuale (DEK) e AES-256-GCM;
@@ -40,23 +38,6 @@ interface KeyPair {
   x25519: KeyObject;
 }
 
-// AES-256-GCM: confidenzialità e integrità. L'AAD lega il testo cifrato al suo contesto
-// (documento e paziente): spostarlo su un altro paziente fa fallire la decifratura.
-function aesSeal(key: Buffer, plaintext: Buffer, aad: Buffer) {
-  const iv = randomBytes(12); // mai riusato con la stessa chiave: ogni chiave cifra una volta sola
-  const cipher = createCipheriv("aes-256-gcm", key, iv);
-  cipher.setAAD(aad);
-  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
-  return { iv, ciphertext, tag: cipher.getAuthTag() };
-}
-
-function aesOpen(key: Buffer, iv: Buffer, ciphertext: Buffer, tag: Buffer, aad: Buffer): Buffer {
-  const decipher = createDecipheriv("aes-256-gcm", key, iv);
-  decipher.setAAD(aad);
-  decipher.setAuthTag(tag);
-  return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-}
-
 // Combina i due segreti condivisi con HKDF-SHA256. Nell'info entra anche l'hash dei due
 // testi cifrati, così la KEK dipende da tutto ciò che è stato scambiato.
 // (L'hash serve perché HKDF in Node accetta al massimo 1024 byte di info.)
@@ -73,7 +54,7 @@ export class Vault {
     private readonly privateKeys: KeyPair,
   ) {}
 
-  // Nuova coppia di chiavi dell'archivio (usata dai test e dallo script npm run chiavi).
+  // Nuove chiavi dell'archivio (usata dai test e dallo script npm run chiavi).
   static generate(): Vault {
     const mlkem = generateKeyPairSync("ml-kem-768");
     const x25519 = generateKeyPairSync("x25519");
@@ -83,26 +64,31 @@ export class Vault {
     );
   }
 
-  // Le chiavi private sono salvate in un file PEM fuori da Git, leggibile solo dal proprietario.
-  // In produzione starebbero in un modulo hardware (HSM) o in un servizio di gestione delle chiavi.
-  static load(path: string): Vault {
-    const pems = readFileSync(path, "utf8").match(/-----BEGIN PRIVATE KEY-----[\s\S]+?-----END PRIVATE KEY-----/g);
-    if (!pems || pems.length !== 2) throw new Error(`File delle chiavi non valido: ${path}`);
-    const [mlkem, x25519] = pems.map((pem) => createPrivateKey(pem));
-    if (mlkem!.asymmetricKeyType !== "ml-kem-768" || x25519!.asymmetricKeyType !== "x25519") {
-      throw new Error(`File delle chiavi non valido: ${path}`);
-    }
-    return new Vault(
-      { mlkem: createPublicKey(mlkem!), x25519: createPublicKey(x25519!) },
-      { mlkem: mlkem!, x25519: x25519! },
-    );
+  // Le chiavi private in forma serializzata (PKCS#8). Servono solo a keyfile.ts,
+  // che le salva cifrate con la passphrase o le divide in quote per il backup.
+  exportSecret(): Buffer {
+    const der = (k: KeyObject) => k.export({ format: "der", type: "pkcs8" }).toString("base64");
+    return Buffer.from(JSON.stringify({ mlkem: der(this.privateKeys.mlkem), x25519: der(this.privateKeys.x25519) }));
   }
 
-  save(path: string): void {
-    const pem = [this.privateKeys.mlkem, this.privateKeys.x25519]
-      .map((k) => k.export({ format: "pem", type: "pkcs8" }))
-      .join("");
-    writeFileSync(path, pem, { mode: 0o600, flag: "wx" }); // "wx": non sovrascrive chiavi esistenti
+  static fromSecret(secret: Buffer): Vault {
+    const { mlkem, x25519 } = JSON.parse(secret.toString("utf8"));
+    const key = (b64: string) => createPrivateKey({ key: Buffer.from(b64, "base64"), format: "der", type: "pkcs8" });
+    const priv = { mlkem: key(mlkem), x25519: key(x25519) };
+    if (priv.mlkem.asymmetricKeyType !== "ml-kem-768" || priv.x25519.asymmetricKeyType !== "x25519") {
+      throw new Error("Chiavi dell'archivio non valide");
+    }
+    return new Vault({ mlkem: createPublicKey(priv.mlkem), x25519: createPublicKey(priv.x25519) }, priv);
+  }
+
+  // Impronta delle chiavi pubbliche: permette di controllare che due copie siano le stesse chiavi.
+  fingerprint(): string {
+    const spki = (k: KeyObject) => k.export({ format: "der", type: "spki" });
+    return createHash("sha256")
+      .update(spki(this.publicKeys.mlkem))
+      .update(spki(this.publicKeys.x25519))
+      .digest("hex")
+      .slice(0, 16);
   }
 
   // Cifra un documento. "context" identifica documento e paziente e finisce nell'AAD.
@@ -142,10 +128,12 @@ export class Vault {
       ecCt,
     );
     const w = unb64(sealed.wrappedKey);
-    const dek = aesOpen(kek, w.subarray(0, 12), w.subarray(12, w.length - 16), w.subarray(w.length - 16), aad);
+    const wrapped = { iv: w.subarray(0, 12), ciphertext: w.subarray(12, w.length - 16), tag: w.subarray(w.length - 16) };
+    const dek = aesOpen(kek, wrapped, aad);
     kek.fill(0);
     try {
-      return aesOpen(dek, unb64(sealed.iv), unb64(sealed.ciphertext), unb64(sealed.tag), aad);
+      const body = { iv: unb64(sealed.iv), ciphertext: unb64(sealed.ciphertext), tag: unb64(sealed.tag) };
+      return aesOpen(dek, body, aad);
     } finally {
       dek.fill(0);
     }

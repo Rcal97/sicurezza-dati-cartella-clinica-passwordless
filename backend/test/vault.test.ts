@@ -1,8 +1,5 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { Vault, type SealedDocument } from "../src/crypto/vault.js";
 
 const vault = Vault.generate();
@@ -60,38 +57,13 @@ describe("Cifratura dei referti (AES-256-GCM + ML-KEM-768/X25519)", () => {
   });
 
   it("basta che una sola delle due chiavi private sia sbagliata perché la decifratura fallisca", () => {
-    const dir = mkdtempSync(join(tmpdir(), "vault-"));
-    try {
-      const other = Vault.generate();
-      vault.save(join(dir, "a.pem"));
-      other.save(join(dir, "b.pem"));
-      const [mlkemA, x25519A] = readFileSync(join(dir, "a.pem"), "utf8").split(/(?<=-----END PRIVATE KEY-----\n)/);
-      const [mlkemB, x25519B] = readFileSync(join(dir, "b.pem"), "utf8").split(/(?<=-----END PRIVATE KEY-----\n)/);
-      // ML-KEM giusta, X25519 sbagliata, e viceversa.
-      writeFileSync(join(dir, "misto1.pem"), mlkemA! + x25519B!);
-      writeFileSync(join(dir, "misto2.pem"), mlkemB! + x25519A!);
-      // I file misti sono validi: il fallimento arriva solo alla decifratura.
-      const misto1 = Vault.load(join(dir, "misto1.pem"));
-      const misto2 = Vault.load(join(dir, "misto2.pem"));
-      const sealed = vault.seal(testo, ctx);
-      assert.throws(() => misto1.open(sealed, ctx));
-      assert.throws(() => misto2.open(sealed, ctx));
-    } finally {
-      rmSync(dir, { recursive: true });
-    }
-  });
-
-  it("le chiavi salvate su file funzionano dopo il caricamento e il file è privato", () => {
-    const dir = mkdtempSync(join(tmpdir(), "vault-"));
-    try {
-      const path = join(dir, "chiavi.pem");
-      vault.save(path);
-      assert.equal(statSync(path).mode & 0o777, 0o600);
-      assert.deepEqual(Vault.load(path).open(vault.seal(testo, ctx), ctx), testo);
-      // Il file esistente non viene sovrascritto.
-      assert.throws(() => Vault.generate().save(path));
-    } finally {
-      rmSync(dir, { recursive: true });
-    }
+    const a = JSON.parse(vault.exportSecret().toString());
+    const b = JSON.parse(Vault.generate().exportSecret().toString());
+    // ML-KEM giusta e X25519 sbagliata, e viceversa: chiavi valide, ma non quelle giuste.
+    const misto1 = Vault.fromSecret(Buffer.from(JSON.stringify({ mlkem: a.mlkem, x25519: b.x25519 })));
+    const misto2 = Vault.fromSecret(Buffer.from(JSON.stringify({ mlkem: b.mlkem, x25519: a.x25519 })));
+    const sealed = vault.seal(testo, ctx);
+    assert.throws(() => misto1.open(sealed, ctx));
+    assert.throws(() => misto2.open(sealed, ctx));
   });
 });

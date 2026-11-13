@@ -26,9 +26,10 @@ export function mongoUrl(): string {
   return `mongodb://${user}:${password}@${host}/${MONGO_APP_DB}?authSource=${MONGO_APP_DB}`;
 }
 
-// File con le chiavi private dell'archivio dei referti (fuori da Git, permessi 600).
+// File con le chiavi private dell'archivio dei referti, cifrate con una passphrase
+// (fuori da Git, permessi 600).
 export const archiveKeyFile = (): string =>
-  process.env.ARCHIVE_KEY_FILE ?? fileURLToPath(new URL("../../secrets/archivio.pem", import.meta.url));
+  process.env.ARCHIVE_KEY_FILE ?? fileURLToPath(new URL("../../secrets/archivio.key", import.meta.url));
 
 // Collegamento alla blockchain: nodo, chiave del backend (ruolo RECORDER) e indirizzi dei contratti.
 export function ledgerConfig() {
