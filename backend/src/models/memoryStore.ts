@@ -6,7 +6,7 @@ export class MemoryStore implements Store {
   private readonly users = new Map<string, User>();
   private readonly registrations = new Map<string, PendingRegistration & { expiresAt: number }>();
   private readonly logins = new Map<string, number>(); // challenge -> scadenza
-  private readonly sessions = new Map<string, { username: string; expiresAt: number }>();
+  private readonly sessions = new Map<string, { username: string; expiresAt: number; absoluteExpiresAt: number }>();
   private readonly invitations = new Map<string, { username: string; expiresAt: number }>();
   private readonly profiles = new Map<string, Profile>();
   // Pubblico per permettere ai test di controllarne il contenuto.
@@ -70,23 +70,43 @@ export class MemoryStore implements Store {
     return valid;
   }
 
-  async createSession(tokenHash: string, username: string, idleMs: number): Promise<void> {
-    this.sessions.set(tokenHash, { username, expiresAt: Date.now() + idleMs });
+  async createSession(tokenHash: string, username: string, idleMs: number, maxMs: number): Promise<void> {
+    const now = Date.now();
+    this.sessions.set(tokenHash, { username, expiresAt: now + idleMs, absoluteExpiresAt: now + maxMs });
   }
 
   async touchSession(tokenHash: string, idleMs: number): Promise<string | null> {
     const entry = this.sessions.get(tokenHash);
     if (!entry) return null;
-    if (entry.expiresAt < Date.now()) {
+    const now = Date.now();
+    if (entry.expiresAt <= now || entry.absoluteExpiresAt <= now) {
       this.sessions.delete(tokenHash);
       return null;
     }
-    entry.expiresAt = Date.now() + idleMs;
+    entry.expiresAt = Math.min(now + idleMs, entry.absoluteExpiresAt);
     return entry.username;
   }
 
   async deleteSession(tokenHash: string): Promise<void> {
     this.sessions.delete(tokenHash);
+  }
+
+  async deleteSessionsOf(username: string): Promise<void> {
+    for (const [hash, s] of this.sessions) if (s.username === username) this.sessions.delete(hash);
+  }
+
+  async removeCredential(username: string, credentialID: string) {
+    const user = this.users.get(username);
+    const index = user?.credentials.findIndex((c) => c.id === credentialID) ?? -1;
+    if (!user || index < 0) return "missing" as const;
+    if (user.credentials.length === 1) return "last" as const;
+    user.credentials.splice(index, 1);
+    return "ok" as const;
+  }
+
+  async removeAllCredentials(username: string): Promise<void> {
+    const user = this.users.get(username);
+    if (user) user.credentials = [];
   }
 
   async setProfile(username: string, profile: Profile) {
@@ -105,6 +125,10 @@ export class MemoryStore implements Store {
 
   async addAccessLog(entry: AccessLogEntry): Promise<void> {
     this.accessLog.push(entry);
+  }
+
+  async listAccessLog(): Promise<AccessLogEntry[]> {
+    return [...this.accessLog];
   }
 
   async addDocument(doc: StoredDocument): Promise<void> {

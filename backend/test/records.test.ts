@@ -5,8 +5,7 @@ import type { Server } from "node:http";
 import { Wallet } from "ethers";
 import { createApp } from "../src/app.js";
 import { config } from "../src/config.js";
-import { fingerprint } from "../src/controllers/records.js";
-import { sealDocument } from "../src/crypto/records.js";
+import { fingerprint, openAccessLog, sealDocument } from "../src/crypto/records.js";
 import { Vault } from "../src/crypto/vault.js";
 import { Outcome, Purpose, type AccessEntry } from "../src/models/ledger.js";
 import { MemoryLedger } from "../src/models/memoryLedger.js";
@@ -118,7 +117,10 @@ describe("Accesso alla cartella: consenso e audit", () => {
 
     const log = store.accessLog.at(-1)!;
     assert.equal(log.entryId, lastEntry().entryId.toString());
-    assert.equal(fingerprint(log.details), lastEntry().recordHash);
+    assert.equal(log.recordHash, lastEntry().recordHash);
+    assert.equal(fingerprint(openAccessLog(vault, log)), lastEntry().recordHash);
+    // Nel database i dettagli sono cifrati: nessun nome in chiaro.
+    assert.ok(!JSON.stringify(log).includes(patient.username));
     // Sulla catena ci sono solo indirizzi e impronte, nessun nome.
     assert.ok(!JSON.stringify(lastEntry(), (_k, v) => (typeof v === "bigint" ? String(v) : v)).includes(patient.username));
   });
@@ -236,11 +238,18 @@ describe("Referti cifrati", () => {
 describe("Accesso d'emergenza", () => {
   const reason = "Paziente incosciente in pronto soccorso";
 
-  it("un medico non abilitato viene respinto", async () => {
+  it("un medico non abilitato viene respinto e il tentativo resta nel registro", async () => {
     const doctor = await user("dr.reparto", "doctor");
     const patient = await user("paz.urgenza1", "patient");
+    const before = ledger.entries.length;
     const res = await call("/records/emergency", { patient: patient.username, reason }, doctor.cookie);
     assert.equal(res.status, 403);
+    assert.equal(ledger.entries.length, before); // il contratto non scrive nulla
+    const log = store.accessLog.at(-1)!;
+    assert.equal(log.entryId, null);
+    const details = openAccessLog(vault, log);
+    assert.equal(details.kind, "emergency-rejected");
+    assert.equal(details.requester, doctor.username);
   });
 
   it("senza una motivazione adeguata l'accesso è rifiutato", async () => {
@@ -263,7 +272,8 @@ describe("Accesso d'emergenza", () => {
     const entry = ledger.entries.at(-1)!;
     assert.ok("reasonHash" in entry);
     // La motivazione resta off-chain, sulla catena c'è solo la sua impronta.
-    assert.equal(store.accessLog.at(-1)!.details.kind, "emergency");
+    assert.equal(openAccessLog(vault, store.accessLog.at(-1)!).kind, "emergency");
+    assert.ok(!JSON.stringify(store.accessLog.at(-1)).includes("incosciente"));
     assert.ok(!JSON.stringify(entry, (_k, v) => (typeof v === "bigint" ? String(v) : v)).includes(reason));
   });
 });

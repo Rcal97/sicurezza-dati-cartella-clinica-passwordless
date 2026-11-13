@@ -78,3 +78,27 @@ button:disabled {
 .errore {
   color: #b42318;
 }
+
+h2 {
+  margin: 24px 0 8px;
+  font-size: 1rem;
+}
+
+ul.passkey {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+ul.passkey li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #e3e9e7;
+}
+
+ul.passkey button {
+  margin-left: auto;
+  padding: 4px 10px;
+}

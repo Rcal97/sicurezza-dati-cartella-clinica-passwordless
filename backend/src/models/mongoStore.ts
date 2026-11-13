@@ -22,7 +22,8 @@ interface ChallengeDoc {
 interface SessionDoc {
   _id: string; // hash SHA-256 del token
   username: string;
-  expiresAt: Date;
+  expiresAt: Date; // scadenza per inattività, rinnovata a ogni richiesta
+  absoluteExpiresAt: Date; // scadenza massima, fissata alla creazione
 }
 interface InvitationDoc {
   _id: string; // hash SHA-256 del codice d'invito
@@ -174,21 +175,48 @@ export class MongoStore implements Store {
     return doc !== null;
   }
 
-  async createSession(tokenHash: string, username: string, idleMs: number): Promise<void> {
-    await this.sessions.insertOne({ _id: tokenHash, username, expiresAt: new Date(Date.now() + idleMs) });
+  async createSession(tokenHash: string, username: string, idleMs: number, maxMs: number): Promise<void> {
+    const now = Date.now();
+    await this.sessions.insertOne({
+      _id: tokenHash,
+      username,
+      expiresAt: new Date(now + idleMs),
+      absoluteExpiresAt: new Date(now + maxMs),
+    });
   }
 
   async touchSession(tokenHash: string, idleMs: number): Promise<string | null> {
-    const now = Date.now();
+    const now = new Date();
+    // Rinnovo con una pipeline: la nuova scadenza non supera mai quella massima.
     const doc = await this.sessions.findOneAndUpdate(
-      { _id: tokenHash, expiresAt: { $gt: new Date(now) } },
-      { $set: { expiresAt: new Date(now + idleMs) } },
+      { _id: tokenHash, expiresAt: { $gt: now }, absoluteExpiresAt: { $gt: now } },
+      [{ $set: { expiresAt: { $min: [new Date(now.getTime() + idleMs), "$absoluteExpiresAt"] } } }],
     );
     return doc?.username ?? null;
   }
 
   async deleteSession(tokenHash: string): Promise<void> {
     await this.sessions.deleteOne({ _id: tokenHash });
+  }
+
+  async deleteSessionsOf(username: string): Promise<void> {
+    await this.sessions.deleteMany({ username });
+  }
+
+  async removeCredential(username: string, credentialID: string) {
+    // Rimozione atomica, solo se l'utente ha almeno due passkey ("credentials.1" esiste):
+    // due revoche contemporanee non possono lasciarlo senza nessuna passkey.
+    const result = await this.users.updateOne(
+      { _id: username, "credentials.id": credentialID, "credentials.1": { $exists: true } },
+      { $pull: { credentials: { id: credentialID } } },
+    );
+    if (result.modifiedCount === 1) return "ok" as const;
+    const owns = await this.users.countDocuments({ _id: username, "credentials.id": credentialID });
+    return owns === 1 ? ("last" as const) : ("missing" as const);
+  }
+
+  async removeAllCredentials(username: string): Promise<void> {
+    await this.users.updateOne({ _id: username }, { $set: { credentials: [] } });
   }
 
   async setProfile(username: string, profile: Profile) {
@@ -213,6 +241,11 @@ export class MongoStore implements Store {
   async addAccessLog(entry: AccessLogEntry): Promise<void> {
     // Copia: il driver aggiungerebbe _id all'oggetto ricevuto.
     await this.accessLog.insertOne({ ...entry });
+  }
+
+  async listAccessLog(): Promise<AccessLogEntry[]> {
+    const docs = await this.accessLog.find({}, { projection: { _id: 0 } }).sort({ createdAt: 1 }).toArray();
+    return docs as AccessLogEntry[];
   }
 
   async addDocument(doc: StoredDocument): Promise<void> {

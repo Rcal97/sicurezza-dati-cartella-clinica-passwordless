@@ -21,6 +21,7 @@ async function request<T>(method: "GET" | "POST", path: string, body?: unknown):
 }
 
 export const api = {
+  get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
 
   // Utente della sessione corrente, oppure null se non c'è una sessione valida.

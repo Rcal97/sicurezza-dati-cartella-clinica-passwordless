@@ -35,7 +35,9 @@ export type AccessDetails =
       nonce: string;
     }
   | {
-      kind: "emergency";
+      // "emergency-rejected": tentativo respinto dal contratto, che non lascia traccia
+      // sulla catena; resta però nel registro off-chain.
+      kind: "emergency" | "emergency-rejected";
       requester: string;
       patient: string;
       reason: string;
@@ -43,10 +45,13 @@ export type AccessDetails =
       nonce: string;
     };
 
+// Voce del registro degli accessi off-chain. I dettagli contengono dati personali e,
+// negli accessi d'emergenza, la motivazione clinica: sono conservati cifrati.
 export interface AccessLogEntry {
-  entryId: string; // identificativo della voce sul registro di audit on-chain
-  recordHash: string;
-  details: AccessDetails;
+  entryId: string | null; // voce sul registro di audit on-chain; null se non registrata
+  recordHash: string; // impronta dei dettagli in chiaro (la stessa scritta sulla catena)
+  createdAt: string;
+  sealed: SealedDocument;
 }
 
 // Referto conservato cifrato: in chiaro restano solo identificativo, paziente e data.
@@ -82,10 +87,19 @@ export interface Store {
   takeInvitation(codeHash: string, username: string): Promise<boolean>;
 
   // Sessioni indicizzate dall'hash del token, mai dal token in chiaro.
-  createSession(tokenHash: string, username: string, idleMs: number): Promise<void>;
+  // Una sessione scade dopo idleMs di inattività e comunque dopo maxMs dalla creazione.
+  createSession(tokenHash: string, username: string, idleMs: number, maxMs: number): Promise<void>;
   // Restituisce l'utente e rinnova la scadenza; null se la sessione non esiste o è scaduta.
   touchSession(tokenHash: string, idleMs: number): Promise<string | null>;
   deleteSession(tokenHash: string): Promise<void>;
+  // Chiude tutte le sessioni di un utente (dispositivo perso, passkey revocata).
+  deleteSessionsOf(username: string): Promise<void>;
+
+  // Revoca di una passkey: "last" se è l'ultima rimasta (l'utente resterebbe chiuso fuori),
+  // "missing" se l'utente non ha quella credenziale.
+  removeCredential(username: string, credentialID: string): Promise<"ok" | "last" | "missing">;
+  // Revoca di tutte le passkey (dispositivi persi): serve un nuovo invito per rientrare.
+  removeAllCredentials(username: string): Promise<void>;
 
   // Profili: un indirizzo blockchain appartiene a un solo utente ("duplicate" altrimenti).
   setProfile(username: string, profile: Profile): Promise<"ok" | "duplicate">;
@@ -93,6 +107,7 @@ export interface Store {
 
   // Copia off-chain dei dettagli degli accessi registrati sulla catena.
   addAccessLog(entry: AccessLogEntry): Promise<void>;
+  listAccessLog(): Promise<AccessLogEntry[]>;
 
   // Referti cifrati di un paziente.
   addDocument(doc: StoredDocument): Promise<void>;

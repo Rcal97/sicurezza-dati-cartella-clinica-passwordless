@@ -9,6 +9,7 @@ import {
 import { api } from "./api";
 
 type Messaggio = { tipo: "ok" | "errore"; testo: string } | null;
+type Passkey = { id: string; transports: string[] };
 
 // Traduce gli errori più comuni in messaggi comprensibili per l'utente.
 function descrivi(err: unknown): string {
@@ -26,11 +27,17 @@ export default function App() {
   const [utente, setUtente] = useState<string | null>(null);
   const [messaggio, setMessaggio] = useState<Messaggio>(null);
   const [inCorso, setInCorso] = useState(false);
+  const [passkeys, setPasskeys] = useState<Passkey[]>([]);
 
   // All'avvio controlla se esiste già una sessione valida.
   useEffect(() => {
     api.me().then(setUtente);
   }, []);
+
+  // Da autenticato, carica l'elenco delle proprie passkey.
+  useEffect(() => {
+    if (utente) api.get<Passkey[]>("/session/passkeys").then(setPasskeys).catch(() => setPasskeys([]));
+  }, [utente]);
 
   async function esegui(azione: () => Promise<void>) {
     setInCorso(true);
@@ -85,6 +92,22 @@ export default function App() {
       setMessaggio({ tipo: "ok", testo: "Sei uscito." });
     });
 
+  const esciOvunque = () =>
+    esegui(async () => {
+      await api.post("/session/logout-all");
+      setUtente(null);
+      setMessaggio({ tipo: "ok", testo: "Sei uscito da tutti i dispositivi." });
+    });
+
+  // Revoca di una passkey (per esempio di un dispositivo perso): per sicurezza
+  // il backend chiude tutte le sessioni, quindi bisogna accedere di nuovo.
+  const revoca = (id: string) =>
+    esegui(async () => {
+      await api.post("/session/passkeys/revoke", { id });
+      setUtente(null);
+      setMessaggio({ tipo: "ok", testo: "Passkey revocata. Accedi di nuovo con un dispositivo rimasto." });
+    });
+
   if (!browserSupportsWebAuthn()) {
     return (
       <main className="scheda">
@@ -110,6 +133,20 @@ export default function App() {
               Aggiungi un'altra passkey
             </button>
           </div>
+          <h2>Le tue passkey</h2>
+          <ul className="passkey">
+            {passkeys.map((p) => (
+              <li key={p.id}>
+                <code>{p.id.slice(0, 12)}…</code> {p.transports.join(", ")}
+                <button className="secondario" onClick={() => revoca(p.id)} disabled={inCorso || passkeys.length < 2}>
+                  Revoca
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button className="secondario" onClick={esciOvunque} disabled={inCorso}>
+            Esci da tutti i dispositivi
+          </button>
         </>
       ) : (
         <>

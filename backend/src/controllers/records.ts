@@ -1,6 +1,6 @@
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import type { Request, Response } from "express";
-import { openDocument } from "../crypto/records.js";
+import { fingerprint, openDocument, sealAccessLog } from "../crypto/records.js";
 import type { Vault } from "../crypto/vault.js";
 import { LedgerRevert, Outcome, Purpose, type Ledger } from "../models/ledger.js";
 import type { AccessDetails, Profile, Store } from "../models/store.js";
@@ -13,13 +13,6 @@ const PURPOSES = new Map<string, Purpose>([
   ["research", Purpose.Research],
   ["administration", Purpose.Administration],
 ]);
-
-// Impronta SHA-256 dei dettagli conservati off-chain: sulla catena va solo questa.
-// I dettagli contengono un nonce casuale, quindi non si possono indovinare provando
-// tutte le combinazioni di medico, paziente e finalità.
-export function fingerprint(value: unknown): string {
-  return "0x" + createHash("sha256").update(JSON.stringify(value)).digest("hex");
-}
 
 const nonce = (): string => randomBytes(16).toString("hex");
 
@@ -99,7 +92,7 @@ export function recordsController(store: Store, ledger: Ledger, vault: Vault) {
           outcome: granted ? Outcome.Granted : Outcome.Denied,
           recordHash,
         });
-        await store.addAccessLog({ entryId: entryId.toString(), recordHash, details });
+        await store.addAccessLog(sealAccessLog(vault, entryId, details));
         return entryId;
       };
 
@@ -158,10 +151,13 @@ export function recordsController(store: Store, ledger: Ledger, vault: Vault) {
           reasonHash: fingerprint({ reason, nonce: details.nonce }),
           recordHash,
         });
-        await store.addAccessLog({ entryId: entryId.toString(), recordHash, details });
+        await store.addAccessLog(sealAccessLog(vault, entryId, details));
       } catch (err) {
         if (err instanceof LedgerRevert && err.errorName === "NotEmergencyStaff") {
-          console.warn(`Accesso d'emergenza rifiutato: ${p.requester} non è abilitato`);
+          // Il contratto non lascia traccia dei tentativi respinti: li conserviamo noi,
+          // perché un tentativo d'emergenza non autorizzato va sempre revisionato.
+          await store.addAccessLog(sealAccessLog(vault, null, { ...details, kind: "emergency-rejected" }));
+          console.warn("Accesso d'emergenza respinto: medico non abilitato (dettagli nel registro cifrato)");
           res.status(403).json({ error: "non abilitato all'accesso d'emergenza" });
           return;
         }

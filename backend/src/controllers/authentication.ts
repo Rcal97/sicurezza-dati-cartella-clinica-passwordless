@@ -107,7 +107,7 @@ export function authenticationController(store: Store) {
 
       // Login riuscito: un token nuovo a ogni accesso (niente session fixation).
       const token = newSessionToken();
-      await store.createSession(hashToken(token), username, config.sessionIdleMs);
+      await store.createSession(hashToken(token), username, config.sessionIdleMs, config.sessionMaxMs);
       res.cookie(SESSION_COOKIE, token, cookieOptions);
       res.json({ verified: true });
     },

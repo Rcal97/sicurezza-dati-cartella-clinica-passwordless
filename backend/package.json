@@ -14,7 +14,9 @@
     "chiavi": "node --env-file=../.env --import tsx src/scripts/keys.ts",
     "referto": "node --env-file=../.env --import tsx src/scripts/report.ts",
     "backup-chiavi": "node --env-file=../.env --import tsx src/scripts/backup.ts",
-    "ripristino-chiavi": "node --env-file=../.env --import tsx src/scripts/restore.ts"
+    "ripristino-chiavi": "node --env-file=../.env --import tsx src/scripts/restore.ts",
+    "revoca": "node --env-file=../.env --import tsx src/scripts/revoke.ts",
+    "registro-accessi": "node --env-file=../.env --import tsx src/scripts/accessLog.ts"
   },
   "keywords": [],
   "author": "",

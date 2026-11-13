@@ -9,5 +9,8 @@ export function sessionRoutes(store: Store): Router {
 
   router.get("/me", requireSession(store), session.me);
   router.post("/logout", session.logout);
+  router.post("/logout-all", requireSession(store), session.logoutAll);
+  router.get("/passkeys", requireSession(store), session.passkeys);
+  router.post("/passkeys/revoke", requireSession(store), session.revokePasskey);
   return router;
 }

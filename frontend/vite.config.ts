@@ -9,6 +9,13 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    // La pagina non può essere inclusa in un frame di un altro sito (clickjacking).
+    headers: {
+      "Content-Security-Policy": "frame-ancestors 'none'",
+      "X-Frame-Options": "DENY",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer",
+    },
     proxy: {
       "/webauthn": "http://127.0.0.1:3000",
       "/session": "http://127.0.0.1:3000",

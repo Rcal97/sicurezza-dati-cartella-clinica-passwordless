@@ -6,7 +6,7 @@ import type { Server } from "node:http";
 import { MongoClient } from "mongodb";
 import { Wallet } from "ethers";
 import { createApp } from "../../src/app.js";
-import { openDocument, sealDocument } from "../../src/crypto/records.js";
+import { openAccessLog, openDocument, sealAccessLog, sealDocument } from "../../src/crypto/records.js";
 import { Vault } from "../../src/crypto/vault.js";
 import { config, mongoUrl } from "../../src/config.js";
 import { MemoryLedger } from "../../src/models/memoryLedger.js";
@@ -21,6 +21,7 @@ const name = (s: string) => `it.${run}.${s}`;
 
 let store: MongoStore;
 let admin: MongoClient;
+const createdLogs: string[] = [];
 
 before(async () => {
   store = await MongoStore.connect(mongoUrl());
@@ -35,7 +36,7 @@ after(async () => {
   await db.collection("challenges").deleteMany({ _id: { $regex: `:it\\.${run}\\.` } } as never);
   await db.collection("invitations").deleteMany({ username: prefix });
   await db.collection("profiles").deleteMany({ _id: prefix } as never);
-  await db.collection("access_log").deleteMany({ "details.requester": prefix });
+  await db.collection("access_log").deleteMany({ recordHash: { $in: createdLogs } });
   await db.collection("documents").deleteMany({ patient: prefix });
   await admin.close();
   await store.close();
@@ -156,7 +157,7 @@ describe("MongoStore (MongoDB reale)", () => {
   });
 
   it("una sessione scaduta viene rifiutata", async () => {
-    await store.createSession(`hash-${run}`, name("ugo"), 1);
+    await store.createSession(`hash-${run}`, name("ugo"), 1, config.sessionMaxMs);
     await new Promise((resolve) => setTimeout(resolve, 20));
     assert.equal(await store.touchSession(`hash-${run}`, config.sessionIdleMs), null);
   });
@@ -178,23 +179,53 @@ describe("MongoStore (MongoDB reale)", () => {
     assert.equal(await store.getProfile(name("altro")), null);
   });
 
-  it("i dettagli di un accesso vengono conservati off-chain", async () => {
-    const entry = {
-      entryId: "1",
-      recordHash: "0x" + "ab".repeat(32),
-      details: {
-        kind: "ordinary" as const,
-        requester: name("medico"),
-        patient: name("paziente"),
-        purpose: "care",
-        outcome: "denied" as const,
-        at: new Date().toISOString(),
-        nonce: "00",
-      },
-    };
+  it("i dettagli di un accesso vengono conservati off-chain, cifrati", async () => {
+    const vault = Vault.generate();
+    const entry = sealAccessLog(vault, 1n, {
+      kind: "emergency",
+      requester: name("medico"),
+      patient: name("paziente"),
+      reason: "Paziente incosciente, sospetto ictus",
+      at: new Date().toISOString(),
+      nonce: "00",
+    });
+    createdLogs.push(entry.recordHash);
     await store.addAccessLog(entry);
-    const doc = await admin.db().collection("access_log").findOne({ "details.requester": name("medico") });
-    assert.equal(doc?.recordHash, entry.recordHash);
+
+    const raw = await admin.db().collection("access_log").findOne({ recordHash: entry.recordHash });
+    assert.ok(!JSON.stringify(raw).includes("ictus"));
+    assert.ok(!JSON.stringify(raw).includes(name("paziente")));
+    const saved = (await store.listAccessLog()).find((e) => e.recordHash === entry.recordHash)!;
+    assert.equal(openAccessLog(vault, saved).kind, "emergency");
+  });
+
+  it("una sessione non dura oltre la durata massima, anche se usata", async () => {
+    await store.createSession(`max-${run}`, name("max"), config.sessionIdleMs, 300);
+    assert.equal(await store.touchSession(`max-${run}`, config.sessionIdleMs), name("max"));
+    // Il rinnovo non porta la scadenza oltre il limite massimo.
+    const doc = await admin.db().collection("sessions").findOne({ _id: `max-${run}` } as never);
+    assert.ok(doc!.expiresAt.getTime() <= doc!.absoluteExpiresAt.getTime());
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    assert.equal(await store.touchSession(`max-${run}`, config.sessionIdleMs), null);
+  });
+
+  it("si possono chiudere tutte le sessioni di un utente", async () => {
+    for (const i of [1, 2, 3]) await store.createSession(`all-${i}-${run}`, name("tutte"), 60_000, 60_000);
+    await store.deleteSessionsOf(name("tutte"));
+    for (const i of [1, 2, 3]) assert.equal(await store.touchSession(`all-${i}-${run}`, 60_000), null);
+  });
+
+  it("revoca delle passkey: mai l'ultima, nemmeno con due revoche contemporanee", async () => {
+    const cred = (id: string) => ({ id: `${id}-${run}`, publicKey: new Uint8Array([1]), counter: 0 });
+    await store.addCredential(name("revoca"), "uid-rev", cred("a"));
+    await store.addCredential(name("revoca"), "uid-rev", cred("b"));
+    assert.equal(await store.removeCredential(name("revoca"), `x-${run}`), "missing");
+    const results = await Promise.all([
+      store.removeCredential(name("revoca"), `a-${run}`),
+      store.removeCredential(name("revoca"), `b-${run}`),
+    ]);
+    assert.deepEqual(results.sort(), ["last", "ok"]);
+    assert.equal((await store.getUser(name("revoca")))?.credentials.length, 1);
   });
 
   it("i referti si salvano cifrati e si rileggono nell'ordine di creazione", async () => {
