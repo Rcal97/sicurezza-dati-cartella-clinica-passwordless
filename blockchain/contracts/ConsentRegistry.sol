@@ -1,14 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {AccessControlDefaultAdminRules} from "@openzeppelin/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /// @title Registro dei consensi
 /// @notice Il paziente concede e revoca l'accesso ai propri dati, separatamente per ogni finalità.
 /// @dev L'indirizzo del paziente è uno pseudonimo dedicato a questo registro: il legame con
 ///      la persona reale è conservato solo off-chain e può essere cancellato.
-contract ConsentRegistry is Ownable, Pausable {
+///      L'amministrazione segue le regole di AccessControlDefaultAdminRules: un solo
+///      amministratore, passaggio di consegne in due fasi e con un ritardo, niente rinuncia
+///      immediata. La pausa spetta a un ruolo separato (PAUSER_ROLE).
+contract ConsentRegistry is AccessControlDefaultAdminRules, Pausable {
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+
+    /// @notice Attesa minima prima che un nuovo amministratore possa subentrare.
+    uint48 public constant ADMIN_TRANSFER_DELAY = 2 days;
+
     /// @notice Finalità del trattamento: un consenso vale solo per la finalità indicata.
     enum Purpose {
         Care,
@@ -34,7 +42,7 @@ contract ConsentRegistry is Ownable, Pausable {
     error InvalidGrantee();
     error InvalidExpiry();
 
-    constructor(address initialOwner) Ownable(initialOwner) {}
+    constructor(address admin) AccessControlDefaultAdminRules(ADMIN_TRANSFER_DELAY, admin) {}
 
     /// @notice Concede il consenso al destinatario, per una finalità, fino alla scadenza indicata.
     function grantConsent(address grantee, Purpose purpose, uint64 expiresAt) external whenNotPaused {
@@ -62,11 +70,11 @@ contract ConsentRegistry is Ownable, Pausable {
     }
 
     /// @notice Emergency Stop: blocca le nuove concessioni.
-    function pause() external onlyOwner {
+    function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
-    function unpause() external onlyOwner {
+    function unpause() external onlyRole(PAUSER_ROLE) {
         _unpause();
     }
 }

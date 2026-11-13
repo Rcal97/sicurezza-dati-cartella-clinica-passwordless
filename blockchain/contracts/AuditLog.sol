@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {AccessControlDefaultAdminRules} from "@openzeppelin/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 import {ConsentRegistry} from "./ConsentRegistry.sol";
 
 /// @title Registro di audit
 /// @notice Registra, in sola aggiunta, ogni accesso a una cartella clinica.
-contract AuditLog is AccessControl {
+/// @dev L'amministratore assegna i ruoli RECORDER ed EMERGENCY. Il suo ruolo segue le regole
+///      di AccessControlDefaultAdminRules: passaggio di consegne in due fasi e con un ritardo,
+///      visibile sulla catena prima che abbia effetto.
+contract AuditLog is AccessControlDefaultAdminRules {
     bytes32 public constant RECORDER_ROLE = keccak256("RECORDER_ROLE");
     bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY_ROLE");
+
+    /// @notice Attesa minima prima che un nuovo amministratore possa subentrare.
+    uint48 public constant ADMIN_TRANSFER_DELAY = 2 days;
 
     enum Outcome {
         Denied,
@@ -39,9 +45,8 @@ contract AuditLog is AccessControl {
     error NotEmergencyStaff(address accessor);
     error MissingReason();
 
-    constructor(address admin, ConsentRegistry registry) {
+    constructor(address admin, ConsentRegistry registry) AccessControlDefaultAdminRules(ADMIN_TRANSFER_DELAY, admin) {
         consentRegistry = registry;
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
     }
 
     /// @notice Registra un accesso ordinario. Solo il backend (RECORDER_ROLE).

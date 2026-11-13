@@ -10,7 +10,10 @@ describe("Deploy (Ignition)", function () {
     const { consentRegistry, auditLog } = await ignition.deploy(CartellaClinica);
 
     expect(await auditLog.consentRegistry()).to.equal(await consentRegistry.getAddress());
-    expect(await consentRegistry.owner()).to.equal(admin.address);
+    expect(await consentRegistry.defaultAdmin()).to.equal(admin.address);
+    expect(await auditLog.defaultAdmin()).to.equal(admin.address);
+    expect(await consentRegistry.hasRole(await consentRegistry.PAUSER_ROLE(), admin.address)).to.equal(true);
+    expect(await consentRegistry.hasRole(await consentRegistry.PAUSER_ROLE(), backend.address)).to.equal(false);
 
     const recorder = await auditLog.RECORDER_ROLE();
     const adminRole = await auditLog.DEFAULT_ADMIN_ROLE();

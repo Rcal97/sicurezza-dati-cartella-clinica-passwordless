@@ -11,6 +11,7 @@ describe("ConsentRegistry", function () {
   async function deploy() {
     const [owner, patient, doctor, stranger] = await ethers.getSigners();
     const registry = await ethers.deployContract("ConsentRegistry", [owner.address]);
+    await registry.connect(owner).grantRole(await registry.PAUSER_ROLE(), owner.address);
     const block = await ethers.provider.getBlock("latest");
     const now = block!.timestamp;
     return { registry, owner, patient, doctor, stranger, now };
@@ -130,11 +131,11 @@ describe("ConsentRegistry", function () {
     expect(await registry.isConsentValid(patient.address, doctor.address, CARE)).to.equal(false);
   });
 
-  it("solo il proprietario può mettere in pausa", async function () {
+  it("solo chi ha il ruolo PAUSER può mettere in pausa", async function () {
     const { registry, stranger } = await deploy();
     await expect(registry.connect(stranger).pause()).to.be.revertedWithCustomError(
       registry,
-      "OwnableUnauthorizedAccount",
+      "AccessControlUnauthorizedAccount",
     );
   });
 });
