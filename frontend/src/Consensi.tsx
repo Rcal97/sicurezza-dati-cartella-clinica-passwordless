@@ -2,11 +2,21 @@ import { useCallback, useEffect, useState } from "react";
 import { BrowserProvider, Contract, type Eip1193Provider } from "ethers";
 import { api } from "./api";
 
+// Il wallet segnala con questi eventi il cambio di rete o di account (EIP-1193).
+type Wallet = Eip1193Provider & {
+  on?: (evento: string, gestore: (dato: unknown) => void) => void;
+  removeListener?: (evento: string, gestore: (dato: unknown) => void) => void;
+};
+
 declare global {
   interface Window {
-    ethereum?: Eip1193Provider;
+    ethereum?: Wallet;
   }
 }
+
+// Senza cache: dopo una transazione l'elenco va riletto dalla catena, non da una risposta
+// memorizzata qualche istante prima (ethers riusa per 250 ms le richieste identiche).
+const collega = (wallet: Wallet) => new BrowserProvider(wallet, undefined, { cacheTimeout: -1 });
 
 // Solo le funzioni e gli eventi del registro dei consensi che servono alla pagina.
 const ABI = [
@@ -48,6 +58,32 @@ export default function PannelloConsensi({ indirizzo }: { indirizzo: string }) {
     api.get<Medico[]>("/directory/doctors").then(setMedici).catch(() => setMedici([]));
   }, []);
 
+  // Se nel wallet si passa a un'altra rete o a un altro account, il collegamento non vale più:
+  // va rifatto da capo, così che i controlli su rete e indirizzo vengano ripetuti. Il passaggio
+  // alla rete giusta, chiesto dalla pagina stessa durante il collegamento, non conta.
+  useEffect(() => {
+    const wallet = window.ethereum;
+    if (!wallet?.on || !rete) return;
+    const scollega = () => {
+      setProvider(null);
+      setConsensi([]);
+      setMessaggio({ tipo: "errore", testo: "Nel wallet sono cambiati la rete o l'account: collegalo di nuovo." });
+    };
+    const reteCambiata = (chainId: unknown) => {
+      if (Number(chainId) !== rete.chainId) scollega();
+    };
+    const accountCambiato = (accounts: unknown) => {
+      const primo = Array.isArray(accounts) ? String(accounts[0] ?? "") : "";
+      if (primo.toLowerCase() !== indirizzo.toLowerCase()) scollega();
+    };
+    wallet.on("chainChanged", reteCambiata);
+    wallet.on("accountsChanged", accountCambiato);
+    return () => {
+      wallet.removeListener?.("chainChanged", reteCambiata);
+      wallet.removeListener?.("accountsChanged", accountCambiato);
+    };
+  }, [rete, indirizzo]);
+
   async function esegui(azione: () => Promise<void>) {
     setInCorso(true);
     setMessaggio(null);
@@ -87,12 +123,15 @@ export default function PannelloConsensi({ indirizzo }: { indirizzo: string }) {
     esegui(async () => {
       if (!window.ethereum) throw new Error("Serve un wallet nel browser (per esempio MetaMask).");
       if (!rete) throw new Error("Informazioni sulla rete non disponibili.");
-      // Senza cache: dopo una transazione l'elenco va riletto dalla catena, non da una risposta
-      // memorizzata qualche istante prima (ethers riusa per 250 ms le richieste identiche).
-      const p = new BrowserProvider(window.ethereum, undefined, { cacheTimeout: -1 });
+      let p = collega(window.ethereum);
       await p.send("eth_requestAccounts", []);
       if (Number((await p.getNetwork()).chainId) !== rete.chainId) {
         await p.send("wallet_switchEthereumChain", [{ chainId: "0x" + rete.chainId.toString(16) }]);
+        // Un provider di ethers resta legato alla rete su cui è nato: dopo il cambio se ne crea uno nuovo.
+        p = collega(window.ethereum);
+        if (Number((await p.getNetwork()).chainId) !== rete.chainId) {
+          throw new Error("Il wallet non è passato alla rete del registro dei consensi.");
+        }
       }
       const account = (await p.getSigner()).address;
       // Il consenso vale solo se firmato dall'indirizzo pseudonimo registrato per il paziente.
