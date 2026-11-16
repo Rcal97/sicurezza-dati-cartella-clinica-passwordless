@@ -13,6 +13,9 @@ coverage/
 secrets/
 *.pem
 *.key
+# Backup delle chiavi: le quote non devono mai finire nel repository, ovunque vengano create
+quota-*.txt
+backup.json
 
 # Circuiti ZK: file generati (le chiavi di prova non si versionano)
 circuits/build/

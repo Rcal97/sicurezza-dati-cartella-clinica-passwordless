@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { archiveKeyFile } from "../config.js";
 import { createBackup, readKeyFile } from "../crypto/keyfile.js";
 import { unlockOrExit } from "./prompt.js";
@@ -12,6 +13,13 @@ import { unlockOrExit } from "./prompt.js";
 const dir = process.argv[2];
 if (!dir) {
   console.error("Uso: npm run backup-chiavi -- <cartella di destinazione>");
+  process.exit(1);
+}
+// Le quote non devono mai stare dentro il progetto: un "git add" le pubblicherebbe.
+const progetto = fileURLToPath(new URL("../../../", import.meta.url));
+const percorso = relative(progetto, resolve(dir));
+if (!percorso.startsWith("..") && !isAbsolute(percorso)) {
+  console.error("Scegli una cartella fuori dal progetto, per esempio ~/backup-chiavi: le quote non vanno mai nel repository.");
   process.exit(1);
 }
 if (existsSync(dir)) {
