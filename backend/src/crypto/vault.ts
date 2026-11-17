@@ -1,5 +1,6 @@
 import {
   createHash,
+  createHmac,
   createPrivateKey,
   createPublicKey,
   decapsulate,
@@ -95,6 +96,14 @@ export class Vault {
       throw new Error("Chiavi dell'archivio non valide");
     }
     return new Vault({ mlkem: createPublicKey(priv.mlkem), x25519: createPublicKey(priv.x25519) }, priv);
+  }
+
+  // Etichetta per cercare dati cifrati senza scriverne la chiave di ricerca in chiaro: HMAC-SHA256
+  // con una chiave derivata da quelle dell'archivio. Senza le chiavi non si può calcolare né
+  // indovinare provando i nomi utente; chi le ha ottiene sempre la stessa etichetta.
+  indexTag(value: string): string {
+    const key = Buffer.from(hkdfSync("sha256", this.exportSecret(), Buffer.alloc(0), "cartella-clinica/indice/v1", 32));
+    return createHmac("sha256", key).update(value).digest("hex");
   }
 
   // Impronta delle chiavi pubbliche: permette di controllare che due copie siano le stesse chiavi.

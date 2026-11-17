@@ -145,3 +145,7 @@ li.consenso button {
 code {
   word-break: break-all;
 }
+
+li.accesso {
+  line-height: 1.5;
+}

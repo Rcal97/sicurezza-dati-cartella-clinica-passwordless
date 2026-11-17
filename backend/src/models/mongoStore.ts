@@ -87,6 +87,7 @@ export class MongoStore implements Store {
     // Un indirizzo blockchain appartiene a un solo utente.
     await this.profiles.createIndex({ address: 1 }, { unique: true });
     await this.documents.createIndex({ patient: 1, createdAt: 1 });
+    await this.accessLog.createIndex({ patientTag: 1, createdAt: 1 });
   }
 
   async getUser(username: string): Promise<User | null> {
@@ -261,6 +262,15 @@ export class MongoStore implements Store {
 
   async listAccessLog(): Promise<AccessLogEntry[]> {
     const docs = await this.accessLog.find({}, { projection: { _id: 0 } }).sort({ createdAt: 1 }).toArray();
+    return docs as AccessLogEntry[];
+  }
+
+  async listAccessLogOf(patientTag: string): Promise<AccessLogEntry[]> {
+    const docs = await this.accessLog
+      .find({ patientTag }, { projection: { _id: 0 } })
+      .sort({ createdAt: 1 })
+      .limit(10_000)
+      .toArray();
     return docs as AccessLogEntry[];
   }
 

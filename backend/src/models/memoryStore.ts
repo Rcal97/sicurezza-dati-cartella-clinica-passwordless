@@ -151,6 +151,10 @@ export class MemoryStore implements Store {
     return [...this.accessLog];
   }
 
+  async listAccessLogOf(patientTag: string): Promise<AccessLogEntry[]> {
+    return this.accessLog.filter((e) => e.patientTag === patientTag);
+  }
+
   async addDocument(doc: StoredDocument): Promise<void> {
     this.documents.push(doc);
   }

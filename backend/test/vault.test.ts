@@ -83,3 +83,14 @@ describe("Cifratura dei referti (AES-256-GCM + ML-KEM-768/X25519)", () => {
     assert.throws(() => misto2.open(sealed, ctx));
   });
 });
+
+describe("Etichette di ricerca", () => {
+  it("sono stabili per le stesse chiavi, diverse per chiavi diverse, e non contengono il valore", () => {
+    const a = Vault.generate();
+    const b = Vault.generate();
+    assert.equal(a.indexTag("mario.rossi"), Vault.fromSecret(a.exportSecret()).indexTag("mario.rossi"));
+    assert.notEqual(a.indexTag("mario.rossi"), b.indexTag("mario.rossi"));
+    assert.notEqual(a.indexTag("mario.rossi"), a.indexTag("mario.rosso"));
+    assert.match(a.indexTag("mario.rossi"), /^[0-9a-f]{64}$/);
+  });
+});

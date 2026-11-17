@@ -82,7 +82,11 @@ export class EthersLedger implements Ledger {
       provider,
       new Contract(cfg.consentRegistry, CONSENT_ABI, provider),
       new Contract(cfg.auditLog, AUDIT_ABI, signer),
-      { chainId: Number(chainId), consentRegistry: getAddress(cfg.consentRegistry) },
+      {
+        chainId: Number(chainId),
+        consentRegistry: getAddress(cfg.consentRegistry),
+        auditLog: getAddress(cfg.auditLog),
+      },
     );
   }
 

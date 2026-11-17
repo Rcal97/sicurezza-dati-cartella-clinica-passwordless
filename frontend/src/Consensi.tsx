@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { BrowserProvider, Contract, type Eip1193Provider } from "ethers";
 import { api } from "./api";
+import RegistroAccessi from "./RegistroAccessi";
 
 // Il wallet segnala con questi eventi il cambio di rete o di account (EIP-1193).
 type Wallet = Eip1193Provider & {
@@ -29,7 +30,7 @@ const FINALITA = ["Cura", "Ricerca", "Amministrazione"];
 const MAX_GIORNI = 365; // come MAX_DURATION nel contratto
 
 type Medico = { username: string; address: string };
-type Rete = { chainId: number; consentRegistry: string };
+type Rete = { chainId: number; consentRegistry: string; auditLog: string };
 type Consenso = { medico: string; address: string; purpose: number; expiresAt: number };
 
 // Testo leggibile per gli errori più comuni del wallet.
@@ -224,6 +225,8 @@ export default function PannelloConsensi({ indirizzo }: { indirizzo: string }) {
         </>
       )}
       {messaggio && <p className={messaggio.tipo}>{messaggio.testo}</p>}
+
+      <RegistroAccessi indirizzo={indirizzo} auditLog={rete?.auditLog ?? null} provider={provider} />
     </section>
   );
 }

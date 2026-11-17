@@ -36,9 +36,10 @@ after(() => {
 });
 
 describe("EthersLedger (blockchain locale)", () => {
-  it("espone la rete e l'indirizzo del registro dei consensi", async () => {
+  it("espone la rete e gli indirizzi dei due contratti", async () => {
     assert.equal(ledger.chain.chainId, 31337);
     assert.equal(ledger.chain.consentRegistry.toLowerCase(), cfg.consentRegistry.toLowerCase());
+    assert.equal(ledger.chain.auditLog.toLowerCase(), cfg.auditLog.toLowerCase());
   });
 
   it("rifiuta un indirizzo dove non c'è un contratto", async () => {

@@ -201,6 +201,30 @@ describe("MongoStore (MongoDB reale)", () => {
     assert.equal(openAccessLog(vault, saved).kind, "emergency");
   });
 
+  it("le voci di un paziente si trovano con la sua etichetta, senza il nome in chiaro", async () => {
+    const vault = Vault.generate();
+    const voce = (patient: string) =>
+      sealAccessLog(vault, null, {
+        kind: "ordinary",
+        requester: name("medico"),
+        patient,
+        purpose: "care",
+        outcome: "denied",
+        at: new Date().toISOString(),
+        nonce: randomBytes(8).toString("hex"),
+      });
+    const mie = [voce(name("etichetta")), voce(name("etichetta"))];
+    const altra = voce(name("etichetta-altro"));
+    for (const e of [...mie, altra]) {
+      createdLogs.push(e.recordHash);
+      await store.addAccessLog(e);
+    }
+    const trovate = await store.listAccessLogOf(vault.indexTag(name("etichetta")));
+    assert.deepEqual(trovate.map((e) => e.recordHash).sort(), mie.map((e) => e.recordHash).sort());
+    const raw = await admin.db().collection("access_log").findOne({ recordHash: altra.recordHash });
+    assert.ok(!JSON.stringify(raw).includes(name("etichetta-altro")));
+  });
+
   it("una sessione non dura oltre la durata massima, anche se usata", async () => {
     await store.createSession(`max-${run}`, name("max"), config.sessionIdleMs, 300);
     assert.equal(await store.touchSession(`max-${run}`, config.sessionIdleMs), name("max"));

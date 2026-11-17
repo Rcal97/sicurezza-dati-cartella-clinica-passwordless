@@ -58,6 +58,7 @@ export type AccessDetails =
 // negli accessi d'emergenza, la motivazione clinica: sono conservati cifrati.
 export interface AccessLogEntry {
   entryId: string | null; // voce sul registro di audit on-chain; null se non registrata
+  patientTag: string; // etichetta HMAC del paziente, per trovarne le voci senza il nome in chiaro
   recordHash: string; // impronta dei dettagli in chiaro (la stessa scritta sulla catena)
   createdAt: string;
   sealed: SealedDocument;
@@ -128,6 +129,7 @@ export interface Store {
   // Copia off-chain dei dettagli degli accessi registrati sulla catena.
   addAccessLog(entry: AccessLogEntry): Promise<void>;
   listAccessLog(): Promise<AccessLogEntry[]>;
+  listAccessLogOf(patientTag: string): Promise<AccessLogEntry[]>;
 
   // Referti cifrati di un paziente.
   addDocument(doc: StoredDocument): Promise<void>;

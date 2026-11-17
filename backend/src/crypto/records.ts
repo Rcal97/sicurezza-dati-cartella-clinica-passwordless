@@ -36,6 +36,7 @@ export function sealAccessLog(vault: Vault, entryId: bigint | null, details: Acc
   const recordHash = fingerprint(details);
   return {
     entryId: entryId === null ? null : entryId.toString(),
+    patientTag: vault.indexTag(details.patient),
     recordHash,
     createdAt: details.at,
     sealed: vault.seal(Buffer.from(JSON.stringify(details)), `access-log|${recordHash}`),

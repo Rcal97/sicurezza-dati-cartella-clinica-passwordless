@@ -34,6 +34,7 @@ export class LedgerRevert extends Error {
 export interface ChainInfo {
   chainId: number;
   consentRegistry: string;
+  auditLog: string;
 }
 
 export interface Ledger {
