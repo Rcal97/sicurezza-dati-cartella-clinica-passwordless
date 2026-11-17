@@ -1,0 +1,103 @@
+\section{Requisiti e modello di minaccia}
+
+\subsection{Attori e casi d'uso}
+Il sistema gestisce l'accesso a cartelle cliniche sintetiche. Gli attori sono:
+
+\begin{description}
+  \item[Paziente] proprietario dei dati; concede e revoca il consenso all'accesso, separatamente per ogni finalità.
+  \item[Medico] professionista abilitato; chiede l'accesso alla cartella di un paziente per una finalità dichiarata.
+  \item[Medico di pronto soccorso] medico autorizzato anche all'accesso d'emergenza, senza consenso, quando il paziente non è in grado di darlo.
+  \item[Struttura sanitaria] ente che identifica gli utenti e rilascia gli inviti, carica i referti, amministra i contratti e mantiene l'elenco dei medici abilitati (sezione~\ref{sec:zkp}).
+  \item[Auditor] soggetto che verifica gli accessi, sul registro on-chain e su quello cifrato off-chain; per esempio il responsabile della protezione dei dati.
+  \item[Avversario] chiunque tenti un accesso non autorizzato, dall'esterno o dall'interno (sezione~\ref{sec:minacce}).
+\end{description}
+
+I casi d'uso principali sono: registrazione e revoca di una passkey, accesso del medico, concessione e revoca del consenso, consultazione di una cartella, accesso d'emergenza, consultazione dell'audit.
+
+\subsection{Requisiti funzionali}
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}l p{.78\textwidth}@{}}
+\toprule
+ID & Requisito\\
+\midrule
+RF1 & Registrazione e accesso degli utenti senza password, con credenziali FIDO2/WebAuthn.\\
+RF2 & Il paziente può concedere il consenso a un medico per una specifica finalità (cura, ricerca, amministrazione), con scadenza, e revocarlo in qualsiasi momento.\\
+RF3 & Un medico può leggere una cartella solo se è abilitato e ha un consenso valido per la finalità dichiarata.\\
+RF4 & Ogni tentativo di accesso, riuscito o negato, lascia una traccia di audit non modificabile.\\
+RF5 & Il medico dimostra di essere abilitato senza rivelare la propria identità alla blockchain (ZKP).\\
+RF6 & I dati clinici sono cifrati a riposo e non compaiono mai sulla blockchain.\\
+RF7 & Il paziente e l'auditor possono verificare lo storico degli accessi.\\
+RF8 & In emergenza un medico autorizzato può accedere senza consenso, con motivazione obbligatoria e traccia separata nell'audit.\\
+RF9 & Un utente può revocare una propria passkey (per esempio di un dispositivo perso) e chiudere tutte le proprie sessioni.\\
+RF10 & Il medico che ha in cura il paziente può aggiungere alla cartella un referto firmato con la propria passkey.\\
+\bottomrule
+\end{tabular}
+\caption{Requisiti funzionali.}
+\end{table}
+
+\subsection{Requisiti non funzionali}
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}l p{.78\textwidth}@{}}
+\toprule
+ID & Requisito\\
+\midrule
+RNF1 & Resistenza al phishing e al replay nell'autenticazione.\\
+RNF2 & Riservatezza e integrità dei dati clinici (cifratura autenticata), anche contro un avversario dotato in futuro di un computer quantistico.\\
+RNF3 & Integrità e non ripudio dell'audit.\\
+RNF4 & Conformità ai principi del GDPR: limitazione della finalità, minimizzazione dei dati e possibilità di cancellazione dei dati personali.\\
+RNF5 & Sicurezza degli smart contract rispetto alle vulnerabilità note (reentrancy, controllo degli accessi, ecc.).\\
+RNF6 & Costi di gas contenuti per le operazioni più frequenti.\\
+RNF7 & Comportamento sicuro in caso di guasto (\emph{fail-closed}): se l'audit non è disponibile, nessun dato viene consegnato.\\
+\bottomrule
+\end{tabular}
+\caption{Requisiti non funzionali.}
+\end{table}
+
+\subsection{Assunzioni}
+\begin{itemize}
+  \item Gli autenticatori FIDO2 dei medici e dei pazienti sono dispositivi non compromessi.
+  \item La blockchain è considerata corretta e disponibile: non si modellano attacchi al consenso della rete.
+  \item Il backend è un componente semi-fidato: può sbagliare o essere compromesso, ma non può riscrivere l'audit né creare un consenso al posto del paziente.
+  \item La procedura di identificazione con cui la struttura rilascia gli inviti è affidabile.
+  \item Si usano esclusivamente dati clinici sintetici.
+\end{itemize}
+
+\subsection{Modello di minaccia}\label{sec:minacce}
+Le minacce sono classificate con le categorie STRIDE (Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege). Le righe da M13 in poi sono emerse dalla revisione di sicurezza descritta nella sezione~\ref{sec:revisione}.
+
+\begin{table}[H]
+\centering\footnotesize
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}l p{.22\textwidth} p{.36\textwidth} p{.2\textwidth}@{}}
+\toprule
+ID & Minaccia (STRIDE) & Contromisura & Verifica\\
+\midrule
+M1 & Furto o riuso di credenziali, phishing (S) & Passkey FIDO2 legate all'origine; nessuna password da rubare & Test, sez.~\ref{sec:fido2-test}\\
+M2 & Replay di una risposta di autenticazione (S) & Challenge casuale a uso singolo con scadenza & Test, sez.~\ref{sec:fido2-test}\\
+M3 & Clonazione dell'autenticatore (S) & Controllo atomico di signCount; revoca della credenziale & Test, sez.~\ref{sec:fido2-test}\\
+M4 & Modifica o cancellazione dei log di audit (T, R) & Log su blockchain in sola aggiunta; dettagli off-chain legati all'impronta on-chain & Test, sez.~\ref{sec:test}\\
+M5 & Medico che nega di aver letto una cartella (R) & Evento on-chain legato all'indirizzo del medico & Sez.~\ref{sec:blockchain}\\
+M6 & Lettura non autorizzata di una cartella (I) & Consenso on-chain per finalità, ruolo verificato, cifratura dei referti & Test, sez.~\ref{sec:accesso} e~\ref{sec:dati}\\
+M7 & Dati personali scritti sul ledger (I) & Sul ledger solo pseudonimi, impronte con nonce e prove; dati off-chain & Sez.~\ref{sec:architettura}; EDPB\cite{edpb-blockchain}\\
+M8 & Vulnerabilità del contratto (T, E) & Pattern di sicurezza, librerie collaudate, test & Sez.~\ref{sec:blockchain}\\
+M9 & Un account ottiene ruoli o consensi non suoi (E) & Controllo del chiamante nel contratto; mai \texttt{tx.origin} & Test, sez.~\ref{sec:test}\\
+M10 & Indisponibilità del servizio (D) & Limite di frequenza per client e per utente; login non bloccabile da terzi & Test, sez.~\ref{sec:revisione}\\
+M11 & Backend compromesso (T, I) & Non può scrivere consensi né riscrivere l'audit; un accesso concesso richiede un consenso valido sulla catena & Test, sez.~\ref{sec:accesso}\\
+M12 & Registrazione di una passkey sull'account di un altro utente (S, E) & Invito monouso legato all'utente, o sessione dello stesso utente & Test, sez.~\ref{sec:fido2-autorizzazione}\\
+M13 & Scoperta degli utenti registrati (I) & Opzioni di login identiche per ogni username & Test, sez.~\ref{sec:revisione}\\
+M14 & Dettagli interni nei messaggi d'errore (I) & Gestore finale degli errori con messaggi generici & Test, sez.~\ref{sec:revisione}\\
+M15 & Lettura diretta del database (I) & Referti e registro degli accessi cifrati; token e inviti solo come hash & Test, sez.~\ref{sec:dati}\\
+M16 & Furto o perdita delle chiavi dell'archivio (I, D) & Chiavi cifrate con passphrase (Argon2id); backup a soglia 3 su 5 & Test, sez.~\ref{sec:chiavi}\\
+M17 & Dispositivo perso o rubato (S) & Revoca della passkey e chiusura di tutte le sessioni; durata massima della sessione & Test, sez.~\ref{sec:fido2-revoca}\\
+M18 & Furto della chiave che amministra i contratti (E) & Passaggio di consegne in due fasi con attesa; pausa con ruolo separato & Test, sez.~\ref{sec:test}\\
+M19 & Abuso dell'accesso d'emergenza (E, R) & Ruolo dedicato, motivazione obbligatoria, evento separato; tentativi respinti registrati & Test, sez.~\ref{sec:accesso}\\
+M20 & Correlazione dei metadati pubblici sulla catena (I) & Pseudonimi dedicati; mitigazione completa solo con rete permissioned & Rischio residuo, sez.~\ref{sec:revisione}\\
+M21 & Referto alterato o attribuito a un altro medico; medico che nega di averlo scritto (T, R, S) & Firma con la passkey del medico sull'impronta del referto, verificata a ogni consegna & Test, sez.~\ref{sec:firma}\\
+\bottomrule
+\end{tabular}
+\caption{Modello di minaccia.}
+\end{table}
+
+I rischi che restano dopo le contromisure sono raccolti nella sezione~\ref{sec:residui}.

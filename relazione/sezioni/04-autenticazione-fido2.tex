@@ -1,0 +1,311 @@
+\section{Autenticazione passwordless con FIDO2}\label{sec:fido2}
+
+Questa sezione descrive come pazienti e medici accedono al sistema senza password, usando una \emph{passkey} FIDO2, e come il backend conserva credenziali e sessioni. Il modulo si trova nella cartella \texttt{backend/} del repository ed è accompagnato da test automatici che riproducono i principali attacchi contro l'autenticazione.
+
+\subsection{WebAuthn in breve}
+FIDO2 è composto da due specifiche: WebAuthn\cite{webauthn}, l'interfaccia con cui il browser dialoga con il server, e CTAP, il protocollo con cui il browser dialoga con l'autenticatore (sensore del telefono, Windows Hello, chiavetta USB). Gli attori sono tre:
+\begin{itemize}
+  \item l'\textbf{autenticatore}, che genera e custodisce una coppia di chiavi per ogni servizio; la chiave privata non lascia mai il dispositivo;
+  \item il \textbf{client}, cioè il browser, che inoltra le richieste e aggiunge l'\emph{origin} della pagina da cui partono;
+  \item la \textbf{Relying Party}, cioè il nostro backend, che conserva solo la chiave pubblica e verifica le firme.
+\end{itemize}
+Il meccanismo è uno schema \emph{challenge-response} a chiave pubblica\cite{kaufman}: il server invia un numero casuale, l'autenticatore lo firma e il server verifica la firma. Sul server non esiste alcun segreto da rubare: chi leggesse l'archivio delle credenziali otterrebbe solo chiavi pubbliche.
+
+\subsection{Strumenti e struttura del codice}
+Il backend segue l'organizzazione Model-View-Controller descritta nella sezione~\ref{sec:architettura}.
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}p{.33\textwidth}p{.6\textwidth}@{}}
+\toprule
+Componente & Ruolo\\
+\midrule
+Node.js 24, TypeScript, Express 5 & Ambiente di esecuzione, linguaggio e framework web.\\
+\texttt{@simplewebauthn/server} 14 & Generazione delle opzioni WebAuthn e verifica delle risposte degli autenticatori.\\
+MongoDB 8.0, driver \texttt{mongodb} 7.8 & Persistenza di utenti, credenziali e sessioni, in un contenitore Docker.\\
+\texttt{node:test} e \texttt{tsx} & Test runner integrato in Node ed esecuzione diretta del TypeScript.\\
+\midrule
+\texttt{src/models/} & Model: interfaccia \texttt{Store} e implementazioni \texttt{MongoStore} e \texttt{MemoryStore}.\\
+\texttt{src/controllers/} & Controller di registrazione, login e sessione.\\
+\texttt{src/middleware/session.ts} & Generazione e hash dei token, opzioni del cookie, controllo della sessione.\\
+\texttt{src/middleware/security.ts} & Intestazioni di sicurezza, limite di frequenza, gestione finale degli errori (sezione~\ref{sec:revisione}).\\
+\texttt{src/routes/} & Collegamento degli indirizzi \texttt{/webauthn/*} e \texttt{/session/*} ai controller.\\
+\texttt{src/app.ts}, \texttt{src/server.ts} & Creazione dell'applicazione con il Model ricevuto; connessione al database e avvio.\\
+\texttt{src/scripts/} & Rilascio degli inviti (\texttt{npm run invito}) e revoca d'ufficio delle passkey (\texttt{npm run revoca}).\\
+\texttt{test/} & Autenticatore software (ES256 e ML-DSA-44), test unitari e di integrazione (sezione~\ref{sec:fido2-test}).\\
+\texttt{frontend/} & Pagina di accesso in React con \texttt{@simplewebauthn/browser}; elenco e revoca delle proprie passkey.\\
+\bottomrule
+\end{tabular}
+\caption{Componenti del modulo di autenticazione.}
+\end{table}
+
+\subsection{Registrazione di una passkey}
+La registrazione avviene in due richieste.
+
+\paragraph{1. Opzioni.} Il client invia lo username; il server lo valida con un'espressione regolare e risponde con le opzioni di creazione della credenziale:
+\begin{itemize}
+  \item una \textbf{challenge} casuale di 32 byte, salvata sul server con una scadenza di 5 minuti;
+  \item l'\textbf{\texttt{rpID}} (\texttt{localhost} in sviluppo), il dominio a cui la passkey resterà legata;
+  \item un \textbf{\texttt{userID} casuale}, che non contiene dati personali: l'autenticatore non riceve né nome né codice fiscale;
+  \item gli \textbf{algoritmi di firma accettati}, in ordine di preferenza (sezione~\ref{sec:fido2-pq});
+  \item \textbf{\texttt{userVerification: required}}: l'utente deve sbloccare l'autenticatore con impronta, volto o PIN, quindi la passkey vale come autenticazione a due fattori (possesso del dispositivo e biometria o conoscenza);
+  \item \textbf{\texttt{residentKey: required}}: la passkey deve essere \emph{individuabile} (\emph{discoverable}), cioè conservata dall'autenticatore insieme all'identificativo dell'utente, così che al login sia il dispositivo a proporla senza che il server riveli quali credenziali esistono (sezione sul login);
+  \item \textbf{\texttt{excludeCredentials}}, l'elenco dei dispositivi già registrati, per evitare di registrarne uno due volte;
+  \item \textbf{\texttt{attestation: none}}: non chiediamo il certificato del produttore, che servirebbe solo a limitare i modelli ammessi e rivelerebbe informazioni sul dispositivo.
+\end{itemize}
+
+\paragraph{2. Verifica.} Il client restituisce la risposta dell'autenticatore e il controller la verifica come mostrato nel listato~\ref{lst:reg-verify}. La challenge in attesa viene \emph{consumata} prima di qualunque controllo: se la verifica fallisce non può essere ritentata, e una risposta intercettata non può essere riproposta.
+
+\begin{lstlisting}[language=TypeScript,caption={Verifica della registrazione (\texttt{controllers/registration.ts}, estratto).},label={lst:reg-verify}]
+// La challenge viene consumata subito: anche un tentativo fallito la invalida.
+const pending = await store.takePendingRegistration(username);
+if (!pending) {
+  res.status(400).json({ error: "challenge assente o scaduta" });
+  return;
+}
+
+verification = await verifyRegistrationResponse({
+  response: response as RegistrationResponseJSON,
+  expectedChallenge: pending.challenge,
+  expectedOrigin: config.origin,
+  expectedRPID: config.rpID,
+  requireUserVerification: true,
+});
+
+const result = await store.addCredential(username, pending.webauthnUserID,
+                                         verification.registrationInfo.credential);
+if (result === "duplicate") {
+  res.status(409).json({ error: "credenziale già registrata" });
+  return;
+}
+\end{lstlisting}
+
+La verifica eseguita dalla libreria controlla che il tipo della risposta sia \texttt{webauthn.create}, che la challenge firmata sia quella emessa, che l'origin indicato dal browser sia quello del nostro frontend, che l'hash dell'\texttt{rpID} nei dati dell'autenticatore corrisponda al nostro, che i flag indichino utente presente e verificato e che l'algoritmo della chiave sia tra quelli offerti. Il controllo sull'origin è quello che rende la passkey resistente al phishing: una pagina clone, anche identica nell'aspetto, ha un origin diverso e la sua risposta viene rifiutata. Infine \texttt{addCredential} salva la chiave pubblica, rifiutando un identificativo di credenziale già associato a un altro utente.
+
+\subsection{Chi può registrare una passkey}\label{sec:fido2-autorizzazione}
+La verifica crittografica di una registrazione dice che la passkey è autentica, ma non dice se chi la sta registrando abbia il diritto di farlo per quell'utente. Nella prima versione del backend questo controllo mancava: chiunque poteva chiedere le opzioni di registrazione per uno username già esistente, creare una passkey con il proprio dispositivo e ottenere che venisse aggiunta all'account della vittima, per poi accedere al suo posto. Era un \emph{account takeover} completo, che i test di autenticazione non rilevavano perché verificavano la correttezza delle firme e non l'autorizzazione a registrarle.
+
+La vulnerabilità è stata gestita in tre passi: prima è stato scritto un test che riproduce l'attacco, verificando che con il codice di allora l'attacco riuscisse; poi è stata introdotta la correzione; infine il test è stato mantenuto, così da impedire che il difetto si ripresenti in futuro.
+
+La correzione riprende il modo in cui le credenziali vengono rilasciate in una struttura sanitaria reale. Prima di poter registrare la sua prima passkey, una persona viene identificata dall'ufficio competente (\emph{identity proofing}), che le consegna un \textbf{codice d'invito}. Il codice è casuale a 128 bit, legato a uno specifico username, valido una sola volta e per 24 ore; nel database ne è conservato solo l'hash. Nel prototipo il rilascio è simulato dal comando \texttt{npm run invito -{}- <username>}. Una passkey aggiuntiva, per esempio un secondo dispositivo, può invece essere registrata solo dall'utente già autenticato, con una sessione valida. Il listato~\ref{lst:autorizza} mostra il controllo, eseguito sia alla richiesta delle opzioni sia alla verifica.
+
+\begin{lstlisting}[language=TypeScript,caption={Autorizzazione alla registrazione (\texttt{controllers/registration.ts}, estratto).},label={lst:autorizza}]
+// Può registrare una passkey per "username":
+// - l'utente stesso, già autenticato (aggiunta di un dispositivo);
+// - chi presenta un invito valido per quello username.
+async function autorizza(store: Store, req: Request, username: string) {
+  if ((await sessionUser(store, req)) === username) return { tipo: "sessione" };
+  const invitation = req.body?.invitation;
+  if (typeof invitation === "string" && invitation.length > 0) {
+    const codeHash = hashToken(invitation);
+    if (await store.hasInvitation(codeHash, username))
+      return { tipo: "invito", codeHash };
+  }
+  return null;
+}
+\end{lstlisting}
+
+L'invito viene consumato solo dopo che la verifica della passkey è riuscita, e con un'operazione atomica (\texttt{findOneAndDelete}): se la registrazione fallisce, per esempio per un errore del dispositivo, l'invito resta utilizzabile, mentre due registrazioni contemporanee con lo stesso codice non possono riuscire entrambe. Lo stesso meccanismo copre il recupero dell'accesso: chi perde l'unico dispositivo registrato si rivolge di nuovo all'ufficio e riceve un nuovo invito.
+
+\subsection{Login}
+Il login segue lo stesso schema di challenge e risposta. Il server genera una challenge e la conserva per 5 minuti; l'autenticatore firma i propri dati concatenati con l'hash dei dati del client, e il server verifica la firma con la chiave pubblica registrata, oltre a tipo, challenge, origin, \texttt{rpID} e flag di verifica dell'utente. Tre scelte meritano una spiegazione, perché sono state introdotte dopo la revisione di sicurezza (sezione~\ref{sec:revisione}).
+
+\paragraph{Opzioni uguali per tutti.} Le opzioni di login non contengono l'elenco delle credenziali dell'utente (\texttt{allowCredentials} è vuoto) e sono quindi identiche per qualunque username, esistente o no. È il dispositivo a proporre le passkey che conserva per il nostro sito, ed è per questo che la registrazione richiede passkey individuabili. Nella versione precedente un utente esistente riceveva l'elenco dei propri identificativi di credenziale e uno inesistente una lista vuota: bastava confrontare le due risposte per sapere chi fosse registrato (\emph{user enumeration}).
+
+\paragraph{Challenge indicizzate per valore.} La challenge in attesa non è più associata allo username, ma conservata con il proprio valore come chiave. Alla verifica il server la legge dai dati firmati dal browser (\texttt{clientDataJSON}) e la consuma con un'operazione atomica: deve esistere, essere stata emessa da questo server e non essere già stata usata (listato~\ref{lst:login-challenge}). Con la challenge legata allo username, chiunque poteva chiedere opzioni di login a nome di un medico mentre questi stava accedendo: la sua challenge veniva sostituita e il login falliva. Ripetuto in continuazione, era un modo semplice per impedirgli di entrare.
+
+\begin{lstlisting}[language=TypeScript,caption={Lettura e consumo della challenge di login (\texttt{controllers/authentication.ts}, estratto).},label={lst:login-challenge}]
+// La challenge si legge dai dati firmati dal browser (clientDataJSON) e si consuma
+// in modo atomico: vale una sola volta ed era stata emessa da questo server.
+const challenge = challengeOf(response);
+if (!challenge || !(await store.takeLoginChallenge(challenge))) {
+  res.status(400).json({ error: "challenge assente o scaduta" });
+  return;
+}
+\end{lstlisting}
+
+\paragraph{Contatore anti-clonazione aggiornato in modo atomico.} Ogni autenticatore mantiene un contatore (\emph{signCount}) che incrementa a ogni firma. La libreria rifiuta un valore che non sia strettamente maggiore di quello salvato; da solo, però, questo controllo non basta. Se due login con lo stesso valore, per esempio da una chiave e dalla sua copia, arrivano nello stesso momento, entrambi leggono il vecchio valore salvato, entrambi superano la verifica ed entrambi vengono accettati. Il contatore viene quindi aggiornato con un'operazione di tipo \emph{compare-and-set}: la scrittura riesce solo se nel database c'è ancora il valore letto prima della verifica (listato~\ref{lst:login}). Dei due login contemporanei ne passa uno solo.
+
+\begin{lstlisting}[language=TypeScript,caption={Conclusione del login (\texttt{controllers/authentication.ts}, estratto).},label={lst:login}]
+// Salviamo il nuovo signCount solo se nessun altro login lo ha cambiato nel frattempo:
+// un clone usato in parallelo all'originale viene rifiutato.
+const updated = await store.updateCounter(username, credential.id,
+  expectedCounter, verification.authenticationInfo.newCounter);
+if (!updated) {
+  res.status(401).json({ error: "autenticazione non valida" });
+  return;
+}
+
+// Login riuscito: un token nuovo a ogni accesso (niente session fixation).
+const token = newSessionToken();
+await store.createSession(hashToken(token), username,
+                          config.sessionIdleMs, config.sessionMaxMs);
+res.cookie(SESSION_COOKIE, token, cookieOptions);
+\end{lstlisting}
+
+Il test che ha guidato questa modifica, un clone usato in parallelo all'originale, all'inizio passava solo in alcune esecuzioni. La causa era un errore nella prima versione della correzione: il valore atteso veniva letto dopo la verifica, quando la richiesta concorrente poteva averlo già aggiornato. Un test che fallisce in modo intermittente su un'operazione concorrente va quindi preso come il segnale di una corsa critica reale, non come un difetto del test.
+
+\paragraph{Messaggi d'errore uniformi.} Utente inesistente, credenziale sconosciuta, firma non valida e uso contemporaneo producono la stessa risposta (\texttt{401 autenticazione non valida}). Il motivo preciso è scritto solo nel log del server, così un attaccante non può usare le risposte per capire quale controllo è fallito.
+
+\subsection{Algoritmi e crittografia post-quantistica}\label{sec:fido2-pq}
+Su Node.js~24 il server offre, nell'ordine, gli algoritmi COSE \texttt{-48} (ML-DSA-44), \texttt{-8} (EdDSA), \texttt{-7} (ES256) e \texttt{-257} (RS256). ML-DSA è lo schema di firma post-quantistico standardizzato dal NIST in FIPS~204\cite{fips204}, basato su reticoli e non vulnerabile all'algoritmo di Shor, che invece romperebbe ECDSA, EdDSA e RSA su un computer quantistico sufficientemente grande.
+
+È l'\emph{autenticatore} a scegliere l'algoritmo tra quelli offerti. La codifica delle chiavi ML-DSA in COSE, il formato usato da WebAuthn, è stata standardizzata nel maggio 2026 (RFC~9964\cite{rfc9964}), e a ottobre 2026 i primi gestori di passkey hanno iniziato a generare credenziali ML-DSA per i siti che le offrono\cite{1password-pq}. La maggior parte dei dispositivi genera ancora chiavi ES256, per cui il sistema accetta entrambe: le passkey post-quantistiche quando l'utente le possiede, quelle classiche negli altri casi. È un esempio di \emph{crypto-agility}: il passaggio a ML-DSA non richiede modifiche al codice.
+
+La scelta è coerente con il piano di transizione del NIST (IR~8547\cite{nistir8547}), che considera deprecati RSA, ECDSA ed EdDSA dopo il 2030 e non più ammessi dopo il 2035. Per l'autenticazione il rischio quantistico riguarda il futuro e non i dati già scambiati: una firma di login intercettata oggi non è riutilizzabile, perché legata a una challenge monouso. Il rischio di tipo \emph{harvest now, decrypt later} riguarda invece la riservatezza delle cartelle cliniche, che vanno protette per decenni: per questo la cifratura dei referti usa ML-KEM (sezione~\ref{sec:dati}).
+
+Il supporto è stato verificato con un autenticatore software che genera chiavi ML-DSA-44 (sezione~\ref{sec:fido2-test}). Il listato~\ref{lst:soft-sign} mostra l'unica differenza tra i due algoritmi al momento della firma: ECDSA firma l'hash SHA-256 del messaggio, mentre ML-DSA riceve il messaggio intero e lo elabora internamente.
+
+\begin{lstlisting}[language=TypeScript,caption={Firma nell'autenticatore software (\texttt{test/softAuthenticator.ts}, estratto).},label={lst:soft-sign}]
+// Firma su authenticatorData || SHA-256(clientDataJSON), come da specifica WebAuthn.
+const signedData = Buffer.concat([authData, sha256(clientDataJSON)]);
+const signature = sign(this.algorithm === "ES256" ? "sha256" : null,
+                       signedData, this.privateKey);
+\end{lstlisting}
+
+Node.js~24 segnala ancora come sperimentali sia ML-DSA nella Web Crypto API sia la funzione usata per rilevarlo: l'algoritmo è standard, ma la sua integrazione negli ecosistemi software è in corso.
+
+\subsection{Sessioni}
+Dopo un login riuscito il server rilascia un token di sessione in un cookie. Le scelte seguono le raccomandazioni OWASP\cite{owasp-session} e sono riassunte nella tabella~\ref{tab:sessioni}; il listato~\ref{lst:token} mostra come vengono generati il token e la sua impronta.
+
+\begin{table}[H]
+\centering\footnotesize
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}p{.3\textwidth}p{.62\textwidth}@{}}
+\toprule
+Scelta & Motivazione\\
+\midrule
+Token opaco di 256 bit casuali & Impossibile da indovinare. A differenza di un JWT, che resta valido fino alla scadenza, si revoca subito al logout.\\
+Sul server solo l'hash SHA-256 del token & Chi leggesse l'archivio delle sessioni non troverebbe token utilizzabili, come per le password salvate come hash.\\
+Cookie \texttt{HttpOnly} & Il token non è leggibile da JavaScript: uno script iniettato (XSS) non può rubarlo.\\
+Cookie \texttt{SameSite=Strict} & Il browser non invia il cookie in richieste partite da altri siti: protezione dal CSRF.\\
+Cookie \texttt{Secure} in produzione & Il cookie viaggia solo su HTTPS.\\
+Token nuovo a ogni login & Protezione dalla \emph{session fixation}: un attaccante non può imporre un token che già conosce.\\
+Scadenza dopo 15 minuti di inattività & Una postazione lasciata aperta, per esempio in reparto, non resta autenticata.\\
+Durata massima di 8 ore & Anche una sessione usata di continuo scade alla fine di un turno: un token rubato non resta valido all'infinito.\\
+Chiusura di tutte le sessioni & L'utente può uscire da tutti i dispositivi; la revoca di una passkey chiude ogni sessione aperta (sezione~\ref{sec:fido2-revoca}).\\
+Middleware \texttt{requireSession} & Un unico punto di controllo per tutte le rotte protette (\emph{complete mediation}).\\
+\bottomrule
+\end{tabular}
+\caption{Scelte di sicurezza per le sessioni.}\label{tab:sessioni}
+\end{table}
+
+\begin{lstlisting}[language=TypeScript,caption={Token di sessione e opzioni del cookie (\texttt{middleware/session.ts}, estratto).},label={lst:token}]
+export const newSessionToken = (): string => randomBytes(32).toString("base64url");
+export const hashToken = (token: string): string =>
+  createHash("sha256").update(token).digest("hex");
+
+export const cookieOptions = {
+  httpOnly: true,
+  sameSite: "strict",
+  secure: config.secureCookies,
+  path: "/",
+} as const;
+\end{lstlisting}
+
+\subsection{Revoca delle credenziali e delle sessioni}\label{sec:fido2-revoca}
+Un sistema di autenticazione deve prevedere anche il caso in cui un dispositivo venga perso o rubato. Da autenticato, l'utente vede l'elenco delle proprie passkey e può revocarne una; per prudenza il server chiude tutte le sessioni dell'utente, compresa quella eventualmente aperta dal dispositivo perso, e chiede di accedere di nuovo con un dispositivo rimasto. L'ultima passkey non si può revocare, perché l'utente resterebbe chiuso fuori; la rimozione è atomica, così che due revoche contemporanee non possano lasciarlo senza alcuna passkey. L'utente può anche chiudere tutte le proprie sessioni senza revocare nulla (\emph{esci da tutti i dispositivi}).
+
+Chi ha perso tutti i dispositivi non può accedere per revocarli: in quel caso la struttura, dopo averlo identificato, esegue la revoca d'ufficio (\texttt{npm run revoca -{}- <username>}), che toglie tutte le sue passkey e chiude tutte le sue sessioni. Per rientrare serve un nuovo invito, come per la prima registrazione.
+
+\subsection{Persistenza su MongoDB}\label{sec:fido2-mongo}
+Utenti, credenziali, challenge in attesa e sessioni sono conservati in MongoDB, eseguito in un contenitore Docker. La configurazione del database e l'implementazione \texttt{MongoStore} contribuiscono entrambe alla sicurezza del sistema.
+
+\paragraph{Configurazione del database.} Il contenitore espone la porta solo sull'interfaccia locale (\texttt{127.0.0.1:27017}), quindi il database non è raggiungibile dalla rete. L'autenticazione è obbligatoria e gli utenti sono due: l'amministratore, riservato alla gestione, e l'utente \texttt{backend}, creato alla prima inizializzazione con il solo ruolo \texttt{readWrite} sul database dell'applicazione. Se il backend venisse compromesso, l'attaccante non potrebbe leggere altri database né creare utenti. Tre prove manuali confermano la configurazione: senza credenziali ogni comando è rifiutato, l'utente \texttt{backend} ha esattamente il ruolo previsto e non può leggere gli utenti del database di amministrazione.
+
+\paragraph{Vincoli imposti dal database.} Alcune proprietà di sicurezza non sono lasciate solo al codice dell'applicazione, ma sono garantite dal database stesso (listato~\ref{lst:indexes}). Un indice univoco sull'identificativo delle credenziali impedisce che la stessa passkey venga associata a due utenti anche quando due registrazioni arrivano nello stesso istante. Due indici TTL fanno sì che MongoDB cancelli da solo challenge e sessioni scadute, secondo il principio di minimizzazione dei dati.
+
+\begin{lstlisting}[language=TypeScript,caption={Indici creati all'avvio (\texttt{models/mongoStore.ts}, estratto).},label={lst:indexes}]
+// Una credenziale può appartenere a un solo utente: lo garantisce il database.
+await this.users.createIndex(
+  { "credentials.id": 1 },
+  { unique: true, partialFilterExpression: { "credentials.id": { $exists: true } } },
+);
+// Indici TTL: MongoDB cancella da solo challenge e sessioni scadute.
+await this.challenges.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+await this.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+\end{lstlisting}
+
+\paragraph{Operazioni atomiche.} Con un database condiviso, due richieste che arrivano contemporaneamente potrebbero leggere lo stesso dato prima che una delle due lo modifichi. Per evitarlo, ogni operazione che deve avvenire una sola volta è eseguita dal database in un unico passaggio: la challenge viene letta e cancellata con \texttt{findOneAndDelete}, il contatore viene aggiornato solo se ha ancora il valore atteso (listato~\ref{lst:take}), la passkey viene rimossa solo se ne resta almeno un'altra, e il rinnovo di una sessione verifica le due scadenze e la aggiorna senza superare la durata massima.
+
+\begin{lstlisting}[language=TypeScript,caption={Consumo della challenge e aggiornamento condizionato del contatore (\texttt{models/mongoStore.ts}, estratto).},label={lst:take}]
+async takeLoginChallenge(challenge: string): Promise<boolean> {
+  const doc = await this.challenges.findOneAndDelete({ _id: `login:${challenge}` });
+  return doc !== null && doc.expiresAt.getTime() >= Date.now();
+}
+
+async updateCounter(username: string, credentialID: string,
+                    expected: number, counter: number): Promise<boolean> {
+  // Il filtro include il valore atteso: l'aggiornamento riesce solo se nessun
+  // altro login ha cambiato il contatore nel frattempo.
+  const result = await this.users.updateOne(
+    { _id: username, credentials: { $elemMatch: { id: credentialID, counter: expected } } },
+    { $set: { "credentials.$.counter": counter } },
+  );
+  return result.modifiedCount === 1 || (result.matchedCount === 1 && expected === counter);
+}
+\end{lstlisting}
+
+L'ultima condizione del listato riguarda gli autenticatori che non usano il contatore e inviano sempre zero, come molte passkey sincronizzate: in quel caso il valore non cambia e il login è accettato.
+
+\subsection{Verifica sperimentale}\label{sec:fido2-test}
+Per verificare il comportamento con passkey reali senza usare un browser, i test impiegano un \textbf{autenticatore software}: un oggetto che genera una coppia di chiavi ES256 oppure ML-DSA-44, costruisce le risposte WebAuthn (dati del client, dati dell'autenticatore in formato CBOR, chiave pubblica COSE) e firma come farebbe un dispositivo vero. A differenza di una passkey reale, può essere manomesso di proposito, per esempio con un origin falso o un contatore riportato indietro, e permette così di simulare in modo ripetibile gli attacchi tipici contro l'autenticazione: replay, phishing e clonazione.
+
+I test sono di due tipi. I \textbf{test unitari} (\texttt{npm test}) usano gli archivi in memoria e non richiedono alcun servizio esterno; i \textbf{test di integrazione} (\texttt{npm run test:mongo}) girano su MongoDB reale e verificano le proprietà che dipendono dal database. Il riepilogo di tutti i test del progetto è nella sezione~\ref{sec:revisione}. La tabella~\ref{tab:test-fido2} riporta quelli di sicurezza dell'autenticazione e il collegamento con le minacce della sezione~2.
+
+\begin{table}[H]
+\centering\footnotesize
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}p{.26\textwidth}p{.06\textwidth}p{.3\textwidth}p{.26\textwidth}@{}}
+\toprule
+Attacco simulato & Rif. & Controllo che lo blocca & Esito\\
+\midrule
+\multicolumn{4}{@{}l}{\emph{Test unitari}}\\
+Replay di una risposta di login intercettata & M2 & Challenge monouso & \texttt{400}: challenge già consumata\\
+Phishing in registrazione & M1 & Origin & \texttt{400}: origin non atteso\\
+Phishing al login & M1 & Origin & \texttt{401}: origin non atteso\\
+Autenticatore clonato & M3 & signCount & \texttt{401}: contatore non superiore all'ultimo visto\\
+Clone usato in parallelo all'originale & M3 & Compare-and-set del contatore & Uno solo dei due login riesce\\
+Dispositivo non registrato & M1 & Credenziale associata all'utente & \texttt{401}, prima della verifica crittografica\\
+Registrazione senza impronta o PIN & M1 & Flag UV obbligatorio & \texttt{400}: utente non verificato\\
+Stessa credenziale per due utenti & M9 & Unicità della credenziale & \texttt{409}\\
+Richieste di login a nome di un altro utente & M10 & Challenge indicizzate per valore & Il login della vittima riesce\\
+Confronto delle opzioni di login & M13 & Opzioni uguali per ogni username & Risposte indistinguibili\\
+Token di sessione inventato & M6 & Hash del token non presente & \texttt{401}\\
+Riuso del cookie dopo il logout & M6 & Sessione distrutta sul server & \texttt{401}\\
+Sessione inattiva per oltre 15 minuti & M6 & Timeout per inattività & \texttt{401}\\
+Sessione usata di continuo per oltre 8 ore & M17 & Durata massima & \texttt{401}\\
+Sessione aperta da un dispositivo poi revocato & M17 & Chiusura di tutte le sessioni & \texttt{401}; la passkey revocata non entra più\\
+Revoca della passkey di un altro utente & M17 & Revoca limitata alle proprie credenziali & \texttt{404}\\
+Firma ML-DSA-44 con una chiave diversa & M1 & Verifica della firma post-quantistica & \texttt{401}\\
+Passkey dell'attaccante aggiunta a un account esistente & M12 & Autorizzazione alla registrazione & \texttt{403}; l'attaccante non può accedere\\
+Registrazione senza invito, con invito già usato, scaduto o di un altro utente & M12 & Invito monouso, legato allo username, con scadenza & \texttt{403}\\
+Utente autenticato che registra per un altro & M12 & Sessione dello stesso utente & \texttt{403}\\
+\midrule
+\multicolumn{4}{@{}l}{\emph{Test di integrazione su MongoDB}}\\
+Clone dopo un riavvio del server & M3 & signCount salvato nel database & \texttt{401}\\
+Due aggiornamenti contemporanei del contatore & M3 & Filtro sul valore atteso & Solo uno riesce\\
+Lettura dell'archivio delle sessioni & M6 & Solo l'hash del token è salvato & Nessun token in chiaro\\
+Stessa credenziale per due utenti & M9 & Indice univoco & Seconda registrazione rifiutata\\
+Due richieste parallele con la stessa challenge & M2 & \texttt{findOneAndDelete} atomico & Solo una ottiene la challenge\\
+Due registrazioni parallele con lo stesso invito & M12 & Consumo atomico dell'invito & Solo una ottiene l'invito\\
+Sessione scaduta o oltre la durata massima & M6, M17 & Scadenze verificate nella query & Sessione rifiutata\\
+Due revoche contemporanee delle ultime due passkey & M17 & Rimozione condizionata & Ne resta una\\
+\bottomrule
+\end{tabular}
+\caption{Test di sicurezza del modulo di autenticazione.}\label{tab:test-fido2}
+\end{table}
+
+Gli altri test verificano i casi legittimi: registrazione con un invito valido, aggiunta di una seconda passkey da utente autenticato, invito ancora valido dopo una registrazione fallita, offerta di ML-DSA-44 come algoritmo preferito, registrazione e login con passkey ML-DSA-44 ed ES256, login ripetuti con contatore crescente, attributi \texttt{HttpOnly} e \texttt{SameSite=Strict} del cookie, lettura dell'utente con \texttt{/session/me}, token diversi per due login dello stesso utente, monouso della challenge, presenza degli indici TTL e, soprattutto, sopravvivenza di passkey e sessioni a un riavvio del server. Il test sulla scadenza della sessione in memoria usa un orologio simulato (\texttt{mock.timers}) per far avanzare il tempo senza attendere; i test di integrazione usano utenti con un prefisso casuale e li cancellano al termine.
+
+\paragraph{Prove con browser e dispositivi reali.} Oltre ai test automatici, il flusso completo è stato provato dal frontend. In Chrome, con l'autenticatore virtuale degli strumenti per sviluppatori, sono stati verificati registrazione, login, permanenza della sessione al ricaricamento della pagina, logout e crescita del contatore a ogni accesso; l'autenticatore virtuale di tipo \emph{internal} non veniva usato dalla versione di Chrome impiegata, mentre quello di tipo \emph{usb} ha funzionato, senza differenze per il backend. Sul portatile Windows è stata poi registrata una passkey reale con \textbf{Windows Hello}, sbloccata con l'impronta digitale: nel database risultano solo l'identificativo della credenziale, la chiave pubblica, il contatore e il trasporto \texttt{internal}, che indica una chiave conservata nel chip di sicurezza del computer. Dopo le modifiche al login, registrazione e accesso sono stati provati di nuovo in Chromium, con un autenticatore virtuale controllato da Playwright: il browser propone da solo la passkey individuabile, l'elenco delle passkey compare nella pagina, la revoca e l'uscita da tutti i dispositivi funzionano come previsto. Il browser ha proposto anche di salvare la passkey nel gestore di password di Google, cioè come passkey sincronizzata nel cloud; per un professionista sanitario è preferibile la passkey legata al dispositivo, per le ragioni discusse tra i rischi residui. Windows Hello non supporta ancora ML-DSA e ha scelto un algoritmo classico tra quelli offerti dal server.
+
+\subsection{Rischi residui}
+\begin{itemize}
+  \item \textbf{Passkey sincronizzate.} Le passkey salvate nel cloud (Google, Apple) spesso inviano sempre contatore zero; in quel caso il controllo anti-clonazione non si applica e la protezione dipende dalla sicurezza dell'account cloud. Per i professionisti sanitari sono preferibili passkey legate al dispositivo.
+  \item \textbf{Attestazione.} Con \texttt{attestation: none} il server non sa quale autenticatore abbia creato la passkey. Per i medici si potrebbe richiedere l'attestazione e ammettere solo autenticatori hardware certificati, a costo di più complessità e di qualche informazione in più sul dispositivo.
+  \item \textbf{Revoca senza nuova verifica.} La revoca di una passkey richiede solo una sessione valida. Chi trovasse una postazione lasciata aperta potrebbe revocare le passkey dell'utente: non otterrebbe l'accesso, ma lo costringerebbe a rientrare con un altro dispositivo. Una nuova verifica con la passkey prima delle operazioni sensibili (\emph{step-up}) chiuderebbe il caso.
+  \item \textbf{Consegna dei codici d'invito.} Fino al momento dell'uso un codice d'invito equivale a una password temporanea: va consegnato su un canale sicuro, per esempio di persona o tramite un'applicazione già autenticata.
+  \item \textbf{Recupero dell'accesso.} La sicurezza del recupero coincide con quella della procedura di identificazione presso la struttura. È consigliabile registrare almeno due passkey per utente.
+  \item \textbf{HTTPS e reverse proxy.} WebAuthn richiede un contesto sicuro: in produzione il servizio va esposto solo su HTTPS, con \texttt{rpID} uguale al dominio reale. Dietro un reverse proxy il limite di frequenza va configurato perché usi l'indirizzo del client e non quello del proxy.
+\end{itemize}

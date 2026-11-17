@@ -1,0 +1,49 @@
+% Relazione - Cartella clinica passwordless
+% Compilare con pdfLaTeX (default di Overleaf).
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[italian]{babel}
+\usepackage{csquotes}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{microtype}
+\usepackage{booktabs,array,graphicx,float}
+\usepackage{listings,xcolor}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage[backend=bibtex,style=numeric]{biblatex}
+\addbibresource{riferimenti.bib}
+
+\definecolor{accent}{HTML}{17695D}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=accent,citecolor=accent}
+\lstset{basicstyle=\ttfamily\small,columns=fullflexible,keepspaces=true,breaklines=true,frame=single,rulecolor=\color{gray!50},keywordstyle=\color{accent}\bfseries,commentstyle=\color{gray},showstringspaces=false,literate={à}{{\`a}}1 {è}{{\`e}}1 {é}{{\'e}}1 {ì}{{\`i}}1 {ò}{{\`o}}1 {ù}{{\`u}}1 {È}{{\`E}}1}
+\lstdefinelanguage{Solidity}{keywords={contract,function,public,private,external,internal,view,pure,returns,require,emit,event,mapping,struct,modifier,address,uint256,bool,bytes32,string,memory,storage,if,else,for,return,import,pragma,constructor,enum,error,revert,is,immutable,constant,indexed,override,onlyRole,onlyOwner,whenNotPaused,uint64,uint8,uint48,delete},comment=[l]{//},morecomment=[s]{/*}{*/},morestring=[b]"}
+\lstdefinelanguage{TypeScript}{keywords={const,let,var,function,return,if,else,for,of,in,await,async,new,class,interface,type,export,import,from,as,implements,private,readonly,static,try,catch,throw,true,false,null,undefined,void,string,number,boolean,Promise},sensitive=true,comment=[l]{//},morecomment=[s]{/*}{*/},morestring=[b]",morestring=[b]',morestring=[b]`}
+
+\title{Cartella clinica passwordless:\\ consenso, accesso e audit con FIDO2, blockchain e prove a conoscenza zero}
+\author{Raffaele \\ \small Laurea magistrale in Informatica, curriculum Sicurezza Informatica \\ \small Università degli Studi di Salerno}
+\date{Corso di Sicurezza dei Dati \,---\, A.A. 2026/27 \\ \small Bozza v0.2}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+% Da scrivere alla fine: problema, soluzione proposta, risultati principali (5-8 righe).
+\end{abstract}
+\tableofcontents
+\newpage
+
+\input{sezioni/01-introduzione}
+\input{sezioni/02-requisiti-e-minacce}
+\input{sezioni/03-architettura}
+\input{sezioni/04-autenticazione-fido2}
+\input{sezioni/05-consenso-audit-blockchain}
+\input{sezioni/06-protezione-dati}
+\input{sezioni/07-revisione-sicurezza}
+\input{sezioni/08-zero-knowledge}
+\input{sezioni/09-confronto-fabric}
+\input{sezioni/10-valutazione}
+\input{sezioni/11-conclusioni}
+
+\printbibliography
+\end{document}

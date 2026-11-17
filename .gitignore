@@ -38,3 +38,17 @@ CLAUDE.md
 
 # Ambiente Python del notebook di analisi
 analisi/.venv/
+
+# Relazione: file temporanei di LaTeX e PDF generato (si versionano solo i sorgenti)
+relazione/main.pdf
+relazione/**/*.aux
+relazione/*.bbl
+relazione/*-blx.bib
+relazione/*.blg
+relazione/*.bcf
+relazione/*.run.xml
+relazione/*.out
+relazione/*.toc
+relazione/*.synctex.gz
+relazione/*.fls
+relazione/*.fdb_latexmk

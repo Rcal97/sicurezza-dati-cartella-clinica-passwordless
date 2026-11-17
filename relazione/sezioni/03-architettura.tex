@@ -1,0 +1,65 @@
+\section{Architettura}\label{sec:architettura}
+
+\subsection{Panoramica}
+Il sistema è una DApp composta da cinque parti, ciascuna con un compito preciso e con un confine di fiducia ben definito. Il paziente e il medico usano un'applicazione web; l'applicazione dialoga con un backend per tutto ciò che riguarda l'identità e i dati clinici, e direttamente con la blockchain, tramite il wallet dell'utente, per concedere o revocare un consenso. La tabella~\ref{tab:componenti} riassume i componenti e lo stato di avanzamento del prototipo.
+
+\begin{table}[H]
+\centering\footnotesize
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}p{.17\textwidth}p{.27\textwidth}p{.38\textwidth}p{.1\textwidth}@{}}
+\toprule
+Componente & Tecnologia & Compito & Stato\\
+\midrule
+Frontend & React, Vite, WebAuthn del browser & Accesso con passkey, gestione delle proprie passkey e delle sessioni, consultazione delle cartelle e firma dei referti, concessione e revoca dei consensi con il wallet del paziente; vista del registro per il paziente da realizzare & Parziale\\
+Backend & Node.js 24, TypeScript, Express 5, ethers 6 & Autenticazione FIDO2, sessioni, controllo degli accessi, cifratura e firma dei referti, scrittura dell'audit & Parziale\\
+Database & MongoDB 8.0 & Utenti, credenziali FIDO2, sessioni, profili, referti cifrati, registro cifrato degli accessi & Completo\\
+Custodia delle chiavi & AES-256-GCM, ML-KEM-768 + X25519, Argon2id, Shamir & Chiavi dell'archivio cifrate con passphrase, backup a soglia & Completo\\
+Smart contract & Solidity 0.8, OpenZeppelin, Hardhat & Registro dei consensi per finalità, registro di audit, verifica delle prove a conoscenza zero & Parziale\\
+\bottomrule
+\end{tabular}
+\caption{Componenti del sistema e stato del prototipo.}\label{tab:componenti}
+\end{table}
+
+Il backend è l'unico componente che vede i dati clinici in chiaro, e solo per il tempo necessario a servirli a un utente autorizzato. Non è però l'unica fonte di verità: non può concedere consensi al posto del paziente, perché il registro dei consensi accetta solo transazioni firmate dal paziente stesso; non può registrare come autorizzato un accesso senza consenso, perché il registro di audit lo rifiuta; e non può cancellare o riscrivere gli accessi registrati, perché il registro è in sola aggiunta. In questo modo la compromissione del backend non basta a nascondere un accesso abusivo.
+
+\subsection{Organizzazione secondo il pattern MVC}
+Il codice segue il pattern Model-View-Controller, adattato alla presenza di due archivi di dati, uno tradizionale e uno distribuito.
+
+Il \textbf{Model} raccoglie tutto ciò che conserva lo stato del sistema, dietro tre interfacce:
+\begin{itemize}
+  \item \texttt{Store}, le operazioni ammesse sui dati off-chain (registrare una credenziale, consumare una challenge, rinnovare una sessione, salvare un referto cifrato), con le implementazioni \texttt{MongoStore}, usata dal server, e \texttt{MemoryStore}, usata dai test;
+  \item \texttt{Ledger}, la vista del backend sulla blockchain (leggere un consenso, scrivere una voce di audit), con le implementazioni \texttt{EthersLedger}, che parla con i contratti, e \texttt{MemoryLedger}, che ne riproduce le regole nei test;
+  \item \texttt{Vault}, che custodisce le chiavi dell'archivio dei referti e offre solo le operazioni di cifratura e decifratura, senza mai esporre le chiavi al resto del codice.
+\end{itemize}
+Sulla catena il Model è costituito dagli smart contract, che custodiscono consensi e registro degli accessi.
+
+La \textbf{View} è il frontend React, che mostra i dati e raccoglie le azioni dell'utente senza contenere regole di sicurezza: ogni decisione viene presa dal backend o dai contratti.
+
+I \textbf{Controller} sono le funzioni del backend che ricevono una richiesta, la validano, applicano le regole (verifica della passkey, controllo del ruolo e del consenso, scadenza della sessione) e interrogano il Model. Le rotte si limitano a collegare gli indirizzi ai controller e ai middleware comuni: controllo della sessione, limite di frequenza, intestazioni di sicurezza e gestione degli errori.
+
+La separazione ha conseguenze dirette sulla sicurezza. Tutti gli accessi ai dati passano da un unico strato, quindi i vincoli importanti, come l'unicità di una credenziale o il consumo atomico di una challenge, sono applicati in un solo punto e non possono essere dimenticati in una rotta. Inoltre l'applicazione riceve il Model dall'esterno (funzione \texttt{createApp(store, ledger, vault)}): lo stesso codice dei controller gira nei test, su archivi in memoria, e nel server, su MongoDB e sulla blockchain, e i test verificano quindi il codice che va davvero in esecuzione.
+
+\subsection{Cosa sta sulla blockchain e cosa no}
+La regola adottata è che sulla blockchain non compare alcun dato sanitario né alcun dato che permetta di risalire direttamente a una persona. Sulla catena vengono scritti soltanto indirizzi pseudonimi, finalità e scadenze dei consensi, esiti degli accessi e impronte crittografiche; i referti, i dettagli degli accessi e le credenziali restano fuori, cifrati o comunque sotto il controllo della struttura sanitaria.
+
+La scelta discende dalla natura stessa di un registro distribuito: ciò che viene scritto è replicato su tutti i nodi e non può essere cancellato. Le linee guida dell'EDPB sul trattamento dei dati personali tramite blockchain\cite{edpb-blockchain} indicano proprio di evitare la scrittura di dati personali sulla catena e di progettare il sistema in modo che il diritto alla cancellazione possa essere esercitato fuori dalla catena. Nel nostro caso le impronte scritte sulla catena sono calcolate su dettagli che contengono un valore casuale (\emph{nonce}): non si possono ricostruire provando tutte le combinazioni di medico, paziente e finalità, e una volta cancellati i dettagli off-chain l'impronta non dice più nulla. Il paziente compare sulla catena con un indirizzo dedicato al solo registro dei consensi, il cui legame con la persona è conservato nel database e può essere cancellato. Restano visibili alcuni metadati, discussi tra i rischi residui (sezione~\ref{sec:residui}).
+
+\subsection{Flusso di accesso a una cartella}\label{sec:flusso}
+Un accesso del medico alla cartella di un paziente attraversa cinque controlli, nell'ordine:
+\begin{enumerate}
+  \item \textbf{autenticazione}: il medico accede con la propria passkey e ottiene una sessione (sezione~\ref{sec:fido2});
+  \item \textbf{prova di abilitazione}: il medico dimostra di appartenere all'elenco dei professionisti abilitati senza rivelare quale sia la propria voce nell'elenco (sezione~\ref{sec:zkp});
+  \item \textbf{ruolo e consenso}: il backend verifica che chi chiede sia un medico e che il paziente gli abbia concesso, sul registro on-chain, un consenso ancora valido per la finalità dichiarata;
+  \item \textbf{audit}: l'esito, concesso o negato, viene scritto sul registro di audit; se la scrittura non riesce, nulla viene consegnato;
+  \item \textbf{consegna}: solo a questo punto i referti vengono decifrati in memoria e consegnati.
+\end{enumerate}
+Nel prototipo attuale sono realizzati i passi 1, 3, 4 e 5, compreso l'accesso d'emergenza (sezione~\ref{sec:accesso}); la prova di abilitazione è ancora da realizzare.
+
+\subsection{Ambiente e gestione delle dipendenze}
+Lo sviluppo avviene su due macchine, un portatile Windows con WSL2 e un PC Linux, sincronizzate tramite il repository Git. La versione di Node.js è fissata nel file \texttt{.nvmrc}, le versioni esatte delle librerie nei file \texttt{package-lock.json} e quella del database nel file \texttt{docker-compose.yml}. Fissare le versioni rende i risultati riproducibili su entrambe le macchine e riduce il rischio di introdurre, con un aggiornamento automatico, una dipendenza compromessa. Per lo stesso motivo le versioni recenti di npm non eseguono gli script di installazione delle dipendenze finché non vengono approvati esplicitamente.
+
+L'immagine del database è indicata con la versione esatta, la 8.0.38, e con la sua impronta crittografica (\emph{digest}): Docker scarica sempre esattamente quella immagine e rifiuta qualunque immagine diversa pubblicata con lo stesso nome. La serie~8.0 è stata scelta perché è supportata dal produttore fino a ottobre 2029 e riceve regolarmente correzioni di sicurezza\cite{mongodb-lifecycle}, mentre le serie intermedie hanno cicli di supporto molto più brevi. Le versioni~8.x non si avviano sui kernel Linux dalla 6.19 alla 7.0.13, per un'incompatibilità nota della libreria di allocazione della memoria\cite{mongodb-server-121912}: sulle macchine di sviluppo serve quindi un kernel precedente al 6.19 oppure almeno il 7.0.14.
+
+I servizi necessari in esecuzione sono tre: MongoDB in Docker, un nodo Hardhat che simula la blockchain in locale e il backend. I contratti vengono pubblicati sul nodo locale con un modulo di Hardhat Ignition, descritto nella sezione~\ref{sec:collegamento}.
+
+I segreti non compaiono mai nel codice né nel repository. Le credenziali del database, la chiave del backend per la blockchain e gli indirizzi dei contratti stanno nel file \texttt{.env}, escluso da Git, di cui il repository contiene solo il modello \texttt{.env.example} con valori fittizi o pubblici. Le chiavi dell'archivio dei referti stanno nella cartella \texttt{secrets/}, anch'essa esclusa, e sono a loro volta cifrate con una passphrase che non viene salvata da nessuna parte (sezione~\ref{sec:chiavi}). Una verifica sulla storia completa del repository conferma che nessun segreto vi è mai stato inserito.
