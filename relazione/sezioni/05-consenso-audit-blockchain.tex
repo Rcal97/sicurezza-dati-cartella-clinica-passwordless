@@ -192,6 +192,31 @@ try {
 
 L'accesso d'emergenza usa una rotta separata, \texttt{POST /records/emergency}, con una motivazione obbligatoria tra 10 e 500 caratteri. Il backend non decide da sé se il medico sia abilitato: lo stabilisce il contratto, che è l'unica fonte di verità sui ruoli. Un tentativo respinto non lascia traccia sulla catena, perché la transazione viene annullata; il backend lo conserva comunque nel registro off-chain cifrato, segnato come non registrato sulla catena, perché un tentativo d'emergenza non autorizzato va sempre revisionato.
 
+\subsection{Registro degli accessi per il paziente}\label{sec:registro-paziente}
+Il paziente ha diritto di sapere chi ha consultato i suoi dati, quando e perché (art.~15 del GDPR\cite{gdpr}). Nella pagina dei consensi trova quindi l'elenco degli accessi alla propria cartella, dal più recente: le consultazioni concesse con la loro finalità, i tentativi negati per mancanza di consenso, i referti aggiunti e gli accessi d'emergenza, riusciti o respinti, con la motivazione scritta dal medico. Il backend fornisce l'elenco con la rotta \texttt{GET /records/access-log}, riservata al paziente stesso: un medico che la chiama riceve un rifiuto, e ogni paziente vede solo le voci che lo riguardano.
+
+Mostrare l'elenco non basta, perché verrebbe dal backend, cioè proprio dal componente di cui l'audit deve permettere di non fidarsi. Ogni voce riporta perciò il numero della voce sulla catena e l'impronta dei dettagli, e il pulsante \emph{Verifica sulla blockchain} fa il confronto nel browser del paziente, con il suo wallet e senza passare dal backend (listato~\ref{lst:verifica}). Il browser legge dal contratto di audit tutti gli eventi che riguardano l'indirizzo del paziente e controlla due cose:
+\begin{itemize}
+  \item per ogni voce mostrata, che sulla catena esista la voce con lo stesso numero e la stessa impronta: se il backend alterasse i dettagli di un accesso, l'impronta non coinciderebbe;
+  \item che nessun evento della catena manchi dall'elenco: se il backend nascondesse un accesso scomodo, la pagina lo segnalerebbe indicando il numero della voce mancante.
+\end{itemize}
+
+\begin{lstlisting}[language=TypeScript,caption={Confronto tra il registro mostrato dal backend e la catena (\texttt{frontend/src/RegistroAccessi.tsx}, estratto).},label={lst:verifica}]
+const sullaCatena = new Map<string, string>();
+for (const ev of eventi) {
+  if (ev instanceof EventLog) sullaCatena.set(ev.args.entryId.toString(), String(ev.args.recordHash).toLowerCase());
+}
+for (const v of voci) {
+  if (v.entryId === null) continue;
+  const hash = sullaCatena.get(v.entryId);
+  nuovi[v.entryId] = hash === undefined ? "assente" : hash === v.recordHash.toLowerCase() ? "ok" : "diversa";
+}
+const mostrate = new Set(voci.map((v) => v.entryId));
+setMancanti([...sullaCatena.keys()].filter((id) => !mostrate.has(id)));
+\end{lstlisting}
+
+La verifica copre le voci scritte sulla catena. Non può coprire i tentativi d'emergenza respinti dal contratto, che sulla catena non lasciano traccia e restano solo nel registro cifrato, né un accesso che il backend avesse consegnato senza registrarlo: è il limite già indicato per un backend compromesso (sezione~\ref{sec:residui}).
+
 \subsection{Design pattern e vulnerabilità considerate}
 Il codice segue i design pattern di sicurezza per gli smart contract\cite{wohrer-patterns} e tiene conto delle vulnerabilità note della piattaforma Ethereum\cite{atzei-survey}. La tabella riassume dove ciascuno è applicato e quando non è pertinente.
 
@@ -239,7 +264,7 @@ Backend sulla catena (8) & dati della rete esposti al frontend; indirizzo senza 
 \caption{Test della parte on-chain.}
 \end{table}
 
-Altri 14 test del backend, con un registro in memoria che applica le stesse regole dei contratti, coprono il flusso di accesso: paziente che tenta di consultare cartelle, paziente inesistente, finalità sconosciute o ereditate, accesso negato senza consenso e registrato come tale, accesso concesso con referti decifrati, corrispondenza tra impronta on-chain e dettagli off-chain, revoca tra lettura e scrittura, blockchain non raggiungibile, accesso d'emergenza respinto, senza motivazione e riuscito.
+Altri 14 test del backend, con un registro in memoria che applica le stesse regole dei contratti, coprono il flusso di accesso: paziente che tenta di consultare cartelle, paziente inesistente, finalità sconosciute o ereditate, accesso negato senza consenso e registrato come tale, accesso concesso con referti decifrati, corrispondenza tra impronta on-chain e dettagli off-chain, revoca tra lettura e scrittura, blockchain non raggiungibile, accesso d'emergenza respinto, senza motivazione e riuscito. Altri 7 test verificano il registro per il paziente: senza sessione o da medico non si ottiene nulla; il paziente vede le proprie voci, dal più recente, con esito, finalità e motivazione degli accessi d'emergenza, e non quelle degli altri; una voce spostata nella cartella di un altro paziente o alterata viene segnalata senza rivelarne il contenuto.
 
 \subsection{Limiti noti}
 \begin{itemize}

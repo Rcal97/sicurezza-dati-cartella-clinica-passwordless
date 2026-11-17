@@ -49,6 +49,8 @@ export default function RegistroAccessi(props: {
 }) {
   const [voci, setVoci] = useState<Voce[] | null>(null);
   const [esiti, setEsiti] = useState<Record<string, Esito>>({});
+  // Voci presenti sulla catena ma non mostrate dal backend: un backend compromesso potrebbe nasconderle.
+  const [mancanti, setMancanti] = useState<string[] | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [inCorso, setInCorso] = useState(false);
 
@@ -77,6 +79,8 @@ export default function RegistroAccessi(props: {
         nuovi[v.entryId] = hash === undefined ? "assente" : hash === v.recordHash.toLowerCase() ? "ok" : "diversa";
       }
       setEsiti(nuovi);
+      const mostrate = new Set(voci.map((v) => v.entryId));
+      setMancanti([...sullaCatena.keys()].filter((id) => !mostrate.has(id)).sort((a, b) => Number(a) - Number(b)));
     } catch (e) {
       setErrore((e as Error).message);
     } finally {
@@ -115,6 +119,15 @@ export default function RegistroAccessi(props: {
           </button>
           {!props.provider && <span className="nota">Collega il wallet per verificare.</span>}
         </div>
+      )}
+      {mancanti !== null && mancanti.length === 0 && (
+        <p className="ok">Tutti gli accessi registrati sulla blockchain per il tuo indirizzo sono in questo elenco.</p>
+      )}
+      {mancanti !== null && mancanti.length > 0 && (
+        <p className="errore">
+          Sulla blockchain ci sono accessi alla tua cartella che questo elenco non mostra (voci n. {mancanti.join(", ")}):
+          segnalalo alla struttura.
+        </p>
       )}
       {errore && <p className="errore">{errore}</p>}
     </>

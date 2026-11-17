@@ -56,7 +56,7 @@ Alcuni punti meritano un commento.
 \paragraph{Dipendenze e segreti.} Le dipendenze del backend, del frontend e del notebook, cioè il codice che va effettivamente in esecuzione, non presentano vulnerabilità note. Negli strumenti di sviluppo della cartella \texttt{blockchain}, le librerie \texttt{glob} e \texttt{minimatch} usate da mocha sono fissate a versioni corrette con gli \emph{override} di npm, limitati a mocha perché altri strumenti richiedono le versioni precedenti. Resta una sola segnalazione, la libreria \texttt{zod} con cui Hardhat controlla il proprio file di configurazione: la versione corretta non è compatibile con Hardhat, che con essa smette di segnalare gli errori di configurazione, come verificato in prova. Il difetto riguarda un consumo eccessivo di memoria su input forniti dallo sviluppatore stesso e non tocca il codice in esecuzione; va ricontrollato a ogni aggiornamento di Hardhat. Oltre alle vulnerabilità note, per ogni componente si è verificato che sia ancora supportato dal produttore: una versione senza vulnerabilità note non è necessariamente sicura, se nessuno cerca più le sue vulnerabilità. La ricerca di segreti in tutti i commit ha trovato soltanto le chiavi pubbliche di prova di Hardhat, valide solo sulla rete locale.
 
 \subsection{Riepilogo dei test}
-La tabella~\ref{tab:test-totali} riporta tutti i test automatici del progetto, compresi quelli della firma dei referti e della pagina dei consensi, aggiunte dopo la revisione. Tutti sono superati.
+La tabella~\ref{tab:test-totali} riporta tutti i test automatici del progetto, compresi quelli della firma dei referti, della pagina dei consensi e del registro per il paziente. Tutti sono superati.
 
 \begin{table}[H]
 \centering\footnotesize
@@ -65,18 +65,18 @@ La tabella~\ref{tab:test-totali} riporta tutti i test automatici del progetto, c
 \toprule
 Gruppo & Comando & Test\\
 \midrule
-Backend, unitari & \texttt{npm test} (cartella \texttt{backend}) & 113\\
-Backend su MongoDB reale & \texttt{npm run test:mongo} & 18\\
+Backend, unitari & \texttt{npm test} (cartella \texttt{backend}) & 121\\
+Backend su MongoDB reale & \texttt{npm run test:mongo} & 19\\
 Backend sulla blockchain locale & \texttt{npm run test:chain} & 8\\
 Smart contract & \texttt{npm test} (cartella \texttt{blockchain}) & 36\\
 \midrule
-Totale & & 175\\
+Totale & & 184\\
 \bottomrule
 \end{tabular}
 \caption{Test automatici del progetto.}\label{tab:test-totali}
 \end{table}
 
-Oltre ai test automatici, i flussi visibili all'utente (registrazione, accesso, aggiunta e revoca di una passkey, uscita da tutti i dispositivi, consultazione di una cartella, firma di un referto, concessione e revoca di un consenso dal wallet del paziente) sono stati provati in un browser reale, con un autenticatore virtuale e con Windows Hello.
+Oltre ai test automatici, i flussi visibili all'utente (registrazione, accesso, aggiunta e revoca di una passkey, uscita da tutti i dispositivi, consultazione di una cartella, firma di un referto, concessione e revoca di un consenso dal wallet del paziente, consultazione e verifica sulla catena del registro degli accessi) sono stati provati in un browser reale, con un autenticatore virtuale e con Windows Hello.
 
 \subsection{Rischi residui}\label{sec:residui}
 I rischi che seguono restano anche dopo le correzioni. Alcuni dipendono da scelte che vanno oltre un prototipo, altri sono limiti intrinseci delle tecnologie usate.
