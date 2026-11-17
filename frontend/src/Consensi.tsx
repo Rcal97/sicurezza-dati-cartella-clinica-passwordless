@@ -37,6 +37,17 @@ type Consenso = { medico: string; address: string; purpose: number; expiresAt: n
 function descrivi(err: unknown): string {
   const e = err as { code?: string; shortMessage?: string; message?: string };
   if (e.code === "ACTION_REJECTED") return "Operazione annullata nel wallet.";
+  // Il wallet numera le transazioni (nonce) in modo diverso dalla rete: succede quando una
+  // rete di prova viene azzerata mentre il wallet ricorda le transazioni precedenti.
+  let dettagli = "";
+  try {
+    dettagli = JSON.stringify(err);
+  } catch {
+    // oggetto non serializzabile: si usa solo il messaggio
+  }
+  if (/nonce too (high|low)/i.test(`${e.message ?? ""} ${dettagli}`)) {
+    return "Il wallet e la rete non sono allineati sul numero delle transazioni (nonce). Succede dopo l'azzeramento di una rete di prova: cancella i dati di attività di MetaMask per questa rete oppure, sul nodo di sviluppo, allinea il nonce con npm run wallet-prova.";
+  }
   return e.shortMessage ?? e.message ?? "Errore imprevisto.";
 }
 
