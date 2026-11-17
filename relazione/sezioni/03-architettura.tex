@@ -14,7 +14,7 @@ Frontend & React, Vite, WebAuthn del browser & Accesso con passkey, gestione del
 Backend & Node.js 24, TypeScript, Express 5, ethers 6 & Autenticazione FIDO2, sessioni, controllo degli accessi, cifratura e firma dei referti, scrittura dell'audit & Parziale\\
 Database & MongoDB 8.0 & Utenti, credenziali FIDO2, sessioni, profili, referti cifrati, registro cifrato degli accessi & Completo\\
 Custodia delle chiavi & AES-256-GCM, ML-KEM-768 + X25519, Argon2id, Shamir & Chiavi dell'archivio cifrate con passphrase, backup a soglia & Completo\\
-Smart contract & Solidity 0.8, OpenZeppelin, Hardhat & Registro dei consensi per finalità, registro di audit, verifica delle prove a conoscenza zero & Parziale\\
+Smart contract & Solidity 0.8, OpenZeppelin, Hardhat & Registro dei consensi per finalità, registro di audit con accessi d'emergenza, amministrazione con passaggio di consegne & Completo\\
 \bottomrule
 \end{tabular}
 \caption{Componenti del sistema e stato del prototipo.}\label{tab:componenti}
@@ -45,15 +45,14 @@ La regola adottata è che sulla blockchain non compare alcun dato sanitario né 
 La scelta discende dalla natura stessa di un registro distribuito: ciò che viene scritto è replicato su tutti i nodi e non può essere cancellato. Le linee guida dell'EDPB sul trattamento dei dati personali tramite blockchain\cite{edpb-blockchain} indicano proprio di evitare la scrittura di dati personali sulla catena e di progettare il sistema in modo che il diritto alla cancellazione possa essere esercitato fuori dalla catena. Nel nostro caso le impronte scritte sulla catena sono calcolate su dettagli che contengono un valore casuale (\emph{nonce}): non si possono ricostruire provando tutte le combinazioni di medico, paziente e finalità, e una volta cancellati i dettagli off-chain l'impronta non dice più nulla. Il paziente compare sulla catena con un indirizzo dedicato al solo registro dei consensi, il cui legame con la persona è conservato nel database e può essere cancellato. Restano visibili alcuni metadati, discussi tra i rischi residui (sezione~\ref{sec:residui}).
 
 \subsection{Flusso di accesso a una cartella}\label{sec:flusso}
-Un accesso del medico alla cartella di un paziente attraversa cinque controlli, nell'ordine:
+Un accesso del medico alla cartella di un paziente attraversa quattro controlli, nell'ordine:
 \begin{enumerate}
   \item \textbf{autenticazione}: il medico accede con la propria passkey e ottiene una sessione (sezione~\ref{sec:fido2});
-  \item \textbf{prova di abilitazione}: il medico dimostra di appartenere all'elenco dei professionisti abilitati senza rivelare quale sia la propria voce nell'elenco (sezione~\ref{sec:zkp});
-  \item \textbf{ruolo e consenso}: il backend verifica che chi chiede sia un medico e che il paziente gli abbia concesso, sul registro on-chain, un consenso ancora valido per la finalità dichiarata;
+  \item \textbf{ruolo e consenso}: il backend verifica che chi chiede abbia il ruolo di medico, assegnato dalla struttura, e che il paziente gli abbia concesso, sul registro on-chain, un consenso ancora valido per la finalità dichiarata;
   \item \textbf{audit}: l'esito, concesso o negato, viene scritto sul registro di audit; se la scrittura non riesce, nulla viene consegnato;
   \item \textbf{consegna}: solo a questo punto i referti vengono decifrati in memoria e consegnati.
 \end{enumerate}
-Nel prototipo attuale sono realizzati i passi 1, 3, 4 e 5, compreso l'accesso d'emergenza (sezione~\ref{sec:accesso}); la prova di abilitazione è ancora da realizzare.
+Per le situazioni d'emergenza esiste un percorso separato, che salta il controllo del consenso ma lascia una traccia distinta nell'audit (sezione~\ref{sec:accesso}). Una prova di abilitazione a conoscenza zero, descritta come estensione nella sezione~\ref{sec:zkp}, si inserirebbe tra il primo e il secondo controllo.
 
 \subsection{Ambiente e gestione delle dipendenze}
 Lo sviluppo avviene su due macchine, un portatile Windows con WSL2 e un PC Linux, sincronizzate tramite il repository Git. La versione di Node.js è fissata nel file \texttt{.nvmrc}, le versioni esatte delle librerie nei file \texttt{package-lock.json} e quella del database nel file \texttt{docker-compose.yml}. Fissare le versioni rende i risultati riproducibili su entrambe le macchine e riduce il rischio di introdurre, con un aggiornamento automatico, una dipendenza compromessa. Per lo stesso motivo le versioni recenti di npm non eseguono gli script di installazione delle dipendenze finché non vengono approvati esplicitamente.

@@ -1,6 +1,30 @@
-\section{Prove a conoscenza zero}\label{sec:zkp}
-\subsection{Obiettivo: provare l'abilitazione senza rivelare l'identità}
-\subsection{Schema con albero di Merkle}\cite{circom}
-\subsection{Circuito e verifier on-chain}
-\subsection{Anonimato e responsabilità: il nullifier pseudonimo}
-% Da completare.
+\section{Un'estensione: l'abilitazione con prove a conoscenza zero}\label{sec:zkp}
+
+Nel prototipo l'abilitazione del medico è un ruolo assegnato dalla struttura sanitaria nel profilo dell'utente, e il consenso del paziente è intestato all'indirizzo del medico. Il sistema è corretto, ma sulla catena pubblica quell'indirizzo compare in ogni consenso e in ogni voce di audit: chi lo associa a una persona può ricostruire di quali pazienti si occupa (sezione~\ref{sec:residui}). Le prove a conoscenza zero permetterebbero al medico di dimostrare di essere abilitato senza dire chi è. Questa sezione descrive come si inserirebbero nel sistema; non sono realizzate nel prototipo.
+
+\subsection{Che cosa si vuole dimostrare}
+Una prova a conoscenza zero permette a chi dimostra di convincere un verificatore che un'affermazione è vera senza rivelare nient'altro\cite{gmr}. Nel nostro caso l'affermazione è: \emph{conosco il segreto di uno dei medici abilitati}. Il verificatore, cioè il contratto, deve accettare la prova senza sapere quale medico l'abbia prodotta.
+
+Lo schema usato più spesso per questo scopo si basa su un albero di Merkle:
+\begin{itemize}
+  \item ogni medico genera sul proprio dispositivo un segreto $s$ e consegna alla struttura solo un \emph{impegno} $c = H(s)$, dove $H$ è una funzione di hash adatta ai circuiti aritmetici, come Poseidon\cite{poseidon};
+  \item la struttura, dopo aver verificato l'abilitazione, inserisce l'impegno in un albero di Merkle e pubblica sul contratto solo la \emph{radice} dell'albero; a ogni abilitazione o revoca la radice cambia;
+  \item per accedere, il medico produce una prova che dice: esiste un segreto $s$ tale che $H(s)$ è una foglia dell'albero con quella radice. Il cammino nell'albero, che identificherebbe la foglia, resta un dato privato della prova.
+\end{itemize}
+
+\subsection{Circuito, prova e verifica}
+L'affermazione si scrive come circuito aritmetico, per esempio con il linguaggio circom\cite{circom}: il circuito ricalcola $H(s)$, risale l'albero con gli hash dei nodi fratelli e controlla di arrivare alla radice pubblica. Con un sistema di prova come Groth16\cite{groth16}, il medico genera la prova nel browser in tempi dell'ordine dei secondi, e la prova è lunga poche centinaia di byte qualunque sia la dimensione del circuito. Dal circuito si genera anche un contratto \emph{verifier} in Solidity, che il registro di audit chiamerebbe prima di registrare un accesso. La verifica usa le operazioni sulla curva BN254 disponibili come contratti precompilati di Ethereum\cite{eip1108} e costa all'incirca 200--250 mila unità di gas, circa cinque volte la registrazione di un accesso nel prototipo attuale (sezione~\ref{sec:val-gas}).
+
+\subsection{Anonimato e responsabilità}
+Due problemi vanno risolti perché lo schema sia utilizzabile.
+
+\paragraph{Riuso delle prove.} Una prova valida non deve poter essere copiata e riusata da altri. Si aggiunge quindi un \emph{nullifier} $n = H(s, \mathit{contesto})$, calcolato nel circuito e pubblicato insieme alla prova: per lo stesso medico e lo stesso contesto (per esempio la coppia paziente--finalità) il nullifier è sempre uguale, per contesti diversi è scollegato. Il nullifier funziona così da pseudonimo diverso per ogni rapporto di cura, che è proprio la mitigazione indicata tra i rischi residui per i metadati sulla catena: il paziente concederebbe il consenso al nullifier invece che all'indirizzo del medico.
+
+\paragraph{Chi risponde degli accessi.} L'anonimato vale verso la catena pubblica, non verso la struttura. Il medico continua ad accedere con la propria passkey, quindi il backend sa chi è e conserva il suo nome nel registro cifrato degli accessi, legato all'impronta on-chain come avviene oggi (sezione~\ref{sec:dati}). Un abuso resta quindi attribuibile da chi ha titolo a consultare il registro, mentre chi osserva la catena vede solo nullifier non collegabili tra loro.
+
+\subsection{Limiti}
+\begin{itemize}
+  \item \textbf{Configurazione iniziale fidata.} Groth16 richiede, per ogni circuito, una cerimonia di generazione dei parametri a cui partecipano più persone. Se tutti i partecipanti colludessero, potrebbero produrre prove false; la riservatezza delle prove resterebbe invece intatta. Sistemi come PLONK usano parametri universali, riutilizzabili per circuiti diversi.
+  \item \textbf{Resistenza ai computer quantistici.} Groth16 si basa su accoppiamenti di curve ellittiche e non è post-quantistico: un computer quantistico potrebbe falsificare prove, anche se non scoprire quale medico ha prodotto quelle già pubblicate. È in contrasto con la scelta post-quantistica fatta per autenticazione e cifratura. I sistemi basati solo su funzioni di hash, come gli STARK\cite{stark}, non hanno questo problema e non richiedono configurazioni fidate, al prezzo di prove molto più grandi e di una verifica on-chain più costosa.
+  \item \textbf{Complessità.} Circuiti, cerimonia, gestione dei segreti dei medici e aggiornamento della radice a ogni abilitazione o revoca aggiungono parti che vanno a loro volta protette e verificate: un errore in un circuito può rendere accettabili prove che non dovrebbero esserlo.
+\end{itemize}

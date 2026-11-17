@@ -6,19 +6,18 @@ Sistema per l'accesso a cartelle cliniche sintetiche con:
 
 - accesso senza password tramite FIDO2/WebAuthn;
 - consenso del paziente e audit degli accessi su blockchain (Ethereum, Solidity);
-- prova di abilitazione del medico con prove a conoscenza zero (circom, snarkjs).
+- referti cifrati con uno schema ibrido post-quantistico (ML-KEM-768 e X25519) e firmati dal medico con la passkey.
 
-Sulla blockchain finiscono solo hash, indirizzi e prove. I dati clinici restano cifrati off-chain e sono esclusivamente dati sintetici.
+Sulla blockchain finiscono solo hash e indirizzi. I dati clinici restano cifrati off-chain e sono esclusivamente dati sintetici.
 
 ## Struttura
 
 - `blockchain/` smart contract Solidity (Hardhat, OpenZeppelin)
 - `backend/` server Node.js con TypeScript
 - `frontend/` interfaccia web con WebAuthn
-- `circuits/` circuiti circom per gli ZKP
 - `docs/` appunti e decisioni di progetto
 
-La relazione e la presentazione sono su Overleaf.
+La relazione è nella cartella `relazione/`.
 
 ## Stato
 

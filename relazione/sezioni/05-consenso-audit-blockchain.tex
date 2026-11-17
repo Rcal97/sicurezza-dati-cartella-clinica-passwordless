@@ -243,7 +243,7 @@ Altri 14 test del backend, con un registro in memoria che applica le stesse rego
 
 \subsection{Limiti noti}
 \begin{itemize}
-  \item Il consenso è associato a un \emph{indirizzo}, non a un'identità verificata. Il legame tra l'indirizzo e il medico abilitato sarà trattato con le prove a conoscenza zero (sezione~\ref{sec:zkp}).
+  \item Il consenso è associato a un \emph{indirizzo}, non a un'identità verificata. Il legame tra l'indirizzo e il medico abilitato è conservato dalla struttura nel database; le prove a conoscenza zero permetterebbero di dimostrarlo sulla catena senza rivelare l'identità del medico (sezione~\ref{sec:zkp}).
   \item Il backend con ruolo \texttt{RECORDER\_ROLE} resta un punto di fiducia: non può alterare le voci già scritte né registrare un accesso concesso senza consenso, ma un backend compromesso potrebbe consegnare dati senza registrarne l'accesso. Una mitigazione è separare chi custodisce le chiavi dei referti da chi espone l'API, così che la decifratura avvenga solo dopo che l'evento è stato confermato sulla catena.
   \item Su una rete pubblica il paziente dovrebbe possedere criptovaluta per pagare il gas di ogni concessione e revoca, un ostacolo serio per chi non conosce questi strumenti. Una soluzione nota sono le meta-transazioni\cite{eip2771}: il paziente firma soltanto il messaggio e un intermediario paga la transazione, senza poterne cambiare il contenuto.
   \item I metadati sulla catena pubblica restano un rischio per la riservatezza, discusso nella sezione~\ref{sec:residui}.

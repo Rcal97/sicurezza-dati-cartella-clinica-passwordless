@@ -17,12 +17,6 @@ secrets/
 quota-*.txt
 backup.json
 
-# Circuiti ZK: file generati (le chiavi di prova non si versionano)
-circuits/build/
-*.zkey
-*.ptau
-*.wtns
-
 # Sistema e editor
 .DS_Store
 .vscode/
