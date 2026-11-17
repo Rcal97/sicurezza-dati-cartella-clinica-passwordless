@@ -1,3 +1,43 @@
 \section{Confronto con Hyperledger Fabric}\label{sec:fabric}
-% Rete permissioned, canali, identità certificate, chaincode in Go, determinismo.
-% Quando sarebbe preferibile Fabric (consorzio di ospedali) e cosa cambierebbe nel progetto.
+
+Il prototipo usa una blockchain pubblica, Ethereum, simulata in locale. Due dei rischi residui dipendono proprio da questa scelta: i metadati scritti sulla catena sono visibili a chiunque (sezione~\ref{sec:residui}) e ogni operazione ha un costo in gas che dipende dal mercato (sezione~\ref{sec:val-gas}). Questa sezione confronta la scelta fatta con Hyperledger Fabric\cite{fabric-paper}, la piattaforma \emph{permissioned} più diffusa, e valuta che cosa cambierebbe nel progetto.
+
+\subsection{Due modelli di blockchain}
+In Ethereum chiunque può leggere la catena, inviare transazioni e partecipare alla validazione dei blocchi; i partecipanti sono identificati solo da chiavi, e la rete si protegge con un costo economico, il gas. Fabric è pensato invece per un consorzio di organizzazioni che si conoscono. Ogni partecipante ha un'identità rilasciata dalla propria organizzazione sotto forma di certificato X.509, e solo chi è stato ammesso può leggere o scrivere. Il codice dei contratti, chiamato \emph{chaincode}, si scrive in linguaggi di uso generale come Go, Java o JavaScript. Non esiste una criptovaluta: il costo delle operazioni è quello dell'infrastruttura che le organizzazioni mantengono.
+
+Anche il modo di arrivare a un accordo è diverso. In Fabric una transazione viene prima eseguita da alcuni nodi, che la approvano secondo una \emph{politica di approvazione} (per esempio: servono le firme dell'ospedale e dell'ente di controllo), poi viene ordinata in blocchi da un servizio di ordinamento e infine validata da tutti i nodi. Il servizio di ordinamento può tollerare guasti accidentali (Raft) oppure, dalla versione~3.0, anche nodi malevoli (BFT)\cite{fabric-docs}. La tabella~\ref{tab:fabric} riassume le differenze che contano per il nostro caso.
+
+\begin{table}[H]
+\centering\footnotesize
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}p{.2\textwidth}p{.36\textwidth}p{.36\textwidth}@{}}
+\toprule
+Aspetto & Ethereum (scelta attuale) & Hyperledger Fabric\\
+\midrule
+Chi legge la catena & Chiunque & Solo i membri del canale\\
+Identità & Indirizzi pseudonimi, senza legame con la persona & Certificati X.509 rilasciati dalle organizzazioni\\
+Dati riservati & Fuori dalla catena, gestiti dall'applicazione & Collezioni private: sulla catena solo l'impronta, i dati solo presso le organizzazioni autorizzate, cancellabili dalla versione 2.5\\
+Chi approva una scrittura & Il contratto, sulla base dei ruoli & Il contratto e una politica che richiede le firme di più organizzazioni\\
+Costo & Gas, variabile con il mercato & Infrastruttura propria, costo stabile\\
+Verificabilità esterna & Chiunque può verificare la storia & Solo i membri della rete\\
+\bottomrule
+\end{tabular}
+\caption{Ethereum e Hyperledger Fabric a confronto sugli aspetti rilevanti per il progetto.}\label{tab:fabric}
+\end{table}
+
+\subsection{Il progetto su Fabric}
+Portare il sistema su Fabric cambierebbe soprattutto tre cose.
+
+\paragraph{Riservatezza dei metadati.} La rete sarebbe formata dalle organizzazioni coinvolte, per esempio l'ospedale, l'azienda sanitaria e un ente di controllo. Consensi e registro di audit sarebbero visibili solo a loro, e il problema della correlazione dei metadati su una catena pubblica sparirebbe. I dettagli degli accessi, che oggi il backend cifra e conserva fuori dalla catena legandoli a un'impronta, troverebbero posto in una collezione privata, che fa la stessa cosa in modo nativo. Dalla versione~2.5 i dati di una collezione privata si possono cancellare conservandone solo l'impronta\cite{fabric-purge}, il che va nella direzione chiesta dalle linee guida europee sul diritto alla cancellazione\cite{edpb-blockchain}.
+
+\paragraph{Fiducia nel backend.} Oggi il backend è l'unico a poter scrivere nel registro di audit, grazie al ruolo \texttt{RECORDER}. Con una politica di approvazione che richiede anche la firma dell'ente di controllo, nessuna organizzazione potrebbe registrare un accesso da sola: un backend compromesso non basterebbe più a scrivere voci false, anche se potrebbe ancora consegnare dati senza registrarli.
+
+\paragraph{Identità e costi.} Il paziente non avrebbe bisogno di un wallet né di criptovaluta per concedere un consenso: firmerebbe con un'identità rilasciata dalla struttura. È più semplice da usare, ma la sua identità sulla rete dipenderebbe dalla struttura, che la rilascia e la può revocare, mentre oggi l'indirizzo del paziente è una chiave che appartiene solo a lui. I costi diventerebbero quelli, prevedibili, dei nodi gestiti dalle organizzazioni.
+
+\subsection{Che cosa si perde}
+La differenza di fondo riguarda chi deve fidarsi di chi. Su una rete pubblica la storia degli accessi può essere verificata da chiunque, anche dal paziente con strumenti suoi, senza fidarsi di nessuna organizzazione. Su Fabric la garanzia vale finché le organizzazioni del consorzio non si accordano tra loro: se tutte colludessero, potrebbero riscrivere la storia del registro, e chi è fuori dalla rete non ha modo di accorgersene. Un consorzio con organizzazioni dagli interessi diversi, come ospedale ed ente di controllo, rende questo scenario improbabile, ma non impossibile.
+
+Nessuna delle due piattaforme, infine, è oggi post-quantistica: Ethereum firma le transazioni con ECDSA sulla curva secp256k1, Fabric con ECDSA nei certificati X.509. In entrambi i casi la sicurezza della catena dipende da firme che un computer quantistico potrebbe falsificare. Il problema è comune a tutte le blockchain diffuse e andrà affrontato al livello delle piattaforme.
+
+\subsection{Valutazione}
+Per un'adozione reale in ambito sanitario, una rete permissioned come Fabric sarebbe probabilmente la scelta più adatta: protegge i metadati, distribuisce la fiducia tra più organizzazioni e ha costi prevedibili. Il prototipo usa Ethereum perché permette di mostrare la verificabilità pubblica dell'audit e il controllo del consenso da parte del paziente con il proprio wallet, e perché i suoi strumenti di sviluppo e di test sono maturi. I contratti sono scritti in modo che la logica, cioè consenso per finalità, audit in sola aggiunta e ruoli separati, si possa trasferire in un chaincode senza cambiare il modello di sicurezza.
