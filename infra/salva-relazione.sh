@@ -23,6 +23,8 @@ mkdir -p "$destinazione"
   find . -type f \( -name '*.tex' -o \( -name '*.bib' ! -name '*-blx.bib' \) -o -path './figure/*.pdf' \) -print0 |
     xargs -0 cp --parents -t "$destinazione"
 )
+# Dal disco di Windows i file arrivano tutti come eseguibili: si riportano a file normali, non eseguibili.
+find "$destinazione" -type f -exec chmod 644 {} +
 
 echo "Relazione copiata in $destinazione. File modificati:"
 git -C "$destinazione" status --short --untracked-files=all -- .
