@@ -1,2 +1,11 @@
-\section{Conclusioni e sviluppi futuri}
-% Estensioni possibili: firma dei documenti clinici, credenziali verificabili, TEE.
+\section{Conclusioni e sviluppi futuri}\label{sec:conclusioni}
+
+Il prototipo mostra che le tecnologie del corso si possono combinare in modo che ciascuna copra il punto debole delle altre. FIDO2 elimina le password e con esse il phishing; la blockchain toglie al backend la possibilità di decidere da solo chi può leggere una cartella e di nascondere un accesso; la cifratura e la separazione tra dati on-chain e off-chain impediscono che la trasparenza della catena diventi una fuga di dati sanitari. Tutti i requisiti sono soddisfatti tranne l'abilitazione con prove a conoscenza zero, progettata ma non realizzata (tabella dei requisiti, sezione~\ref{sec:valutazione}). Nessuno degli attacchi del modello di minaccia è riuscito nelle prove, e i costi misurati sono contenuti: circa 42 mila unità di gas per registrare un accesso, meno di un millisecondo per cifrare un referto, mezzo millisecondo per verificare anche una firma post-quantistica.
+
+I limiti principali sono tre. Su una blockchain pubblica i metadati degli accessi restano visibili e collegabili; un backend compromesso può leggere i dati che decifra senza registrarlo; a server acceso le chiavi dell'archivio sono nella memoria del processo. Da questi limiti derivano gli sviluppi futuri:
+\begin{itemize}
+  \item una rete \emph{permissioned} come Hyperledger Fabric, con politiche di approvazione tra più organizzazioni, preferibile in un'adozione reale (sezione~\ref{sec:fabric});
+  \item l'abilitazione dei medici con prove a conoscenza zero e pseudonimi diversi per ogni rapporto di cura (sezione~\ref{sec:zkp});
+  \item le chiavi dell'archivio in un HSM o in un ambiente di esecuzione fidato (TEE), e chiavi separate per paziente;
+  \item una nuova verifica con la passkey (\emph{step-up}) per le operazioni sensibili.
+\end{itemize}

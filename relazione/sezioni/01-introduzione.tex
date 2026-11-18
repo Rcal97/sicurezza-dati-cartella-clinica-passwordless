@@ -1,6 +1,25 @@
-\section{Introduzione}
+\section{Introduzione}\label{sec:introduzione}
+
 \subsection{Contesto e motivazione}
-% I dati sanitari sono tra i più sensibili; accesso, consenso e tracciamento ancora deboli.
-\subsection{Obiettivi del progetto}
-% Le quattro proprietà: accesso senza password, consenso revocabile, audit non modificabile, meno dati esposti.
+I dati sanitari sono una \emph{categoria particolare} di dati personali (art.~9 GDPR\cite{gdpr}): la loro diffusione può causare discriminazioni e danni difficili da rimediare. Eppure l'accesso a una cartella clinica elettronica si basa ancora spesso su password, che si possono rubare con il phishing o riusare da un servizio violato; il consenso del paziente è un documento che il sistema non verifica a ogni accesso; e il registro degli accessi è conservato e amministrato dallo stesso soggetto che dovrebbe essere controllato.
+
+\subsection{Obiettivi}
+Il progetto realizza il prototipo di una cartella clinica che affronta questi tre punti con strumenti visti nel corso:
+\begin{itemize}
+  \item \textbf{accesso senza password}: pazienti e medici si autenticano con una passkey FIDO2, resistente al phishing e al replay;
+  \item \textbf{consenso verificabile e revocabile}: il paziente concede e revoca il consenso con il proprio wallet, per una finalità e fino a una scadenza, su uno smart contract che il backend consulta a ogni accesso;
+  \item \textbf{audit non modificabile}: ogni accesso, concesso o negato, è registrato su blockchain prima che i dati vengano consegnati;
+  \item \textbf{dati esposti al minimo}: sulla blockchain vanno solo pseudonimi e impronte, mentre referti e dettagli degli accessi restano fuori dalla catena, cifrati.
+\end{itemize}
+Per i dati che devono restare riservati per decenni, la cifratura e, dove l'autenticatore lo consente, le passkey usano anche algoritmi post-quantistici standardizzati dal NIST. I dati clinici usati sono esclusivamente sintetici.
+
 \subsection{Contributi e struttura della relazione}
+Il prototipo comprende un backend in TypeScript, un frontend React, due smart contract in Solidity e 191 test automatici; il codice è pubblico su GitHub. La relazione è organizzata così:
+\begin{itemize}
+  \item la sezione~\ref{sec:minacce} definisce requisiti e modello di minaccia;
+  \item la sezione~\ref{sec:architettura} descrive l'architettura e cosa sta sulla catena;
+  \item le sezioni~\ref{sec:fido2}, \ref{sec:blockchain} e~\ref{sec:dati} descrivono autenticazione FIDO2, consenso e audit su blockchain, protezione dei dati clinici;
+  \item la sezione~\ref{sec:revisione} riporta la revisione di sicurezza del prototipo;
+  \item le sezioni~\ref{sec:zkp} e~\ref{sec:fabric} discutono due alternative progettuali: le prove a conoscenza zero e una blockchain \emph{permissioned};
+  \item la sezione~\ref{sec:valutazione} verifica i requisiti e misura costi e prestazioni; la sezione~\ref{sec:conclusioni} conclude.
+\end{itemize}
