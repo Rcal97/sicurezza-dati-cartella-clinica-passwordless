@@ -65,7 +65,7 @@ RNF7 & Comportamento sicuro in caso di guasto (\emph{fail-closed}): se l'audit n
 \end{itemize}
 
 \subsection{Modello di minaccia}\label{sec:minacce}
-Le minacce sono classificate con le categorie STRIDE (Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege). Le righe da M13 in poi sono emerse dalla revisione di sicurezza descritta nella sezione~\ref{sec:revisione}.
+Le minacce sono classificate con le categorie STRIDE (Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege).
 
 \begin{table}[H]
 \centering\footnotesize
@@ -80,12 +80,12 @@ M3 & Clonazione dell'autenticatore (S) & Controllo atomico di signCount; revoca 
 M4 & Modifica o cancellazione dei log di audit (T, R) & Log su blockchain in sola aggiunta; dettagli off-chain legati all'impronta on-chain & Test, sez.~\ref{sec:test}\\
 M5 & Medico che nega di aver letto una cartella (R) & Evento on-chain legato all'indirizzo del medico & Sez.~\ref{sec:blockchain}\\
 M6 & Lettura non autorizzata di una cartella (I) & Consenso on-chain per finalità, ruolo verificato, cifratura dei referti & Test, sez.~\ref{sec:accesso} e~\ref{sec:dati}\\
-M7 & Dati personali scritti sul ledger (I) & Sul ledger solo pseudonimi, impronte con nonce e prove; dati off-chain & Sez.~\ref{sec:architettura}; EDPB\cite{edpb-blockchain}\\
+M7 & Dati personali scritti sul ledger (I) & Sul ledger solo pseudonimi, impronte con nonce; dati off-chain & Sez.~\ref{sec:architettura}; EDPB\cite{edpb-blockchain}\\
 M8 & Vulnerabilità del contratto (T, E) & Pattern di sicurezza, librerie collaudate, test & Sez.~\ref{sec:blockchain}\\
 M9 & Un account ottiene ruoli o consensi non suoi (E) & Controllo del chiamante nel contratto; mai \texttt{tx.origin} & Test, sez.~\ref{sec:test}\\
 M10 & Indisponibilità del servizio (D) & Limite di frequenza per client e per utente; login non bloccabile da terzi & Test, sez.~\ref{sec:revisione}\\
 M11 & Backend compromesso (T, I) & Non può scrivere consensi né riscrivere l'audit; un accesso concesso richiede un consenso valido sulla catena & Test, sez.~\ref{sec:accesso}\\
-M12 & Registrazione di una passkey sull'account di un altro utente (S, E) & Invito monouso legato all'utente, o sessione dello stesso utente & Test, sez.~\ref{sec:fido2-autorizzazione}\\
+M12 & Registrazione di una passkey sull'account di un altro utente (S, E) & Invito monouso legato all'utente, o sessione dello stesso utente & Test, sez.~\ref{sec:fido2}\\
 M13 & Scoperta degli utenti registrati (I) & Opzioni di login identiche per ogni username & Test, sez.~\ref{sec:revisione}\\
 M14 & Dettagli interni nei messaggi d'errore (I) & Gestore finale degli errori con messaggi generici & Test, sez.~\ref{sec:revisione}\\
 M15 & Lettura diretta del database (I) & Referti e registro degli accessi cifrati; token e inviti solo come hash & Test, sez.~\ref{sec:dati}\\
@@ -93,7 +93,7 @@ M16 & Furto o perdita delle chiavi dell'archivio (I, D) & Chiavi cifrate con pas
 M17 & Dispositivo perso o rubato (S) & Revoca della passkey e chiusura di tutte le sessioni; durata massima della sessione & Test, sez.~\ref{sec:fido2-revoca}\\
 M18 & Furto della chiave che amministra i contratti (E) & Passaggio di consegne in due fasi con attesa; pausa con ruolo separato & Test, sez.~\ref{sec:test}\\
 M19 & Abuso dell'accesso d'emergenza (E, R) & Ruolo dedicato, motivazione obbligatoria, evento separato; tentativi respinti registrati & Test, sez.~\ref{sec:accesso}\\
-M20 & Correlazione dei metadati pubblici sulla catena (I) & Pseudonimi dedicati; mitigazione completa solo con rete permissioned & Rischio residuo, sez.~\ref{sec:revisione}\\
+M20 & Correlazione dei metadati pubblici sulla catena (I) & Pseudonimi dedicati; mitigazione completa solo con rete permissioned & Rischio residuo, sez.~\ref{sec:residui}\\
 M21 & Referto alterato o attribuito a un altro medico; medico che nega di averlo scritto (T, R, S) & Firma con la passkey del medico sull'impronta del referto, verificata a ogni consegna & Test, sez.~\ref{sec:firma}\\
 \bottomrule
 \end{tabular}

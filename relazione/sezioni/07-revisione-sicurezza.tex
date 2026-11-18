@@ -1,20 +1,20 @@
 \section{Revisione di sicurezza}\label{sec:revisione}
 
-Completate le funzioni principali, il prototipo è stato sottoposto a una revisione di sicurezza complessiva, con lo scopo di cercare i problemi che i test scritti insieme al codice non avevano rilevato. Questa sezione descrive il metodo, i problemi trovati, come sono stati corretti e i rischi che restano.
+Completate le funzioni principali, il prototipo è stato sottoposto a una revisione di sicurezza complessiva, per cercare i problemi che i test scritti insieme al codice non avevano rilevato.
 
 \subsection{Metodo}
-La revisione ha riguardato l'intero repository: backend, frontend, contratti, configurazione di Docker e MongoDB, gestione dei segreti, dipendenze e storia di Git. Come riferimento per gli aspetti da controllare è stato usato lo standard di verifica OWASP ASVS, versione~5.0\cite{asvs}, integrato per la parte on-chain dalle vulnerabilità note degli smart contract\cite{atzei-survey}. Le verifiche svolte sono state di quattro tipi:
+La revisione ha riguardato l'intero repository: backend, frontend, contratti, configurazione di Docker e MongoDB, segreti, dipendenze e storia di Git. Come riferimento si è usato lo standard di verifica OWASP ASVS~5.0\cite{asvs} e, per i contratti, le vulnerabilità note degli smart contract\cite{atzei-survey}. Le verifiche sono state di cinque tipi:
 \begin{itemize}
-  \item rilettura del codice, controllo per controllo, alla ricerca di casi non gestiti;
-  \item \textbf{riproduzione} di ogni sospetto con una prova eseguita contro il codice reale, prima di considerarlo un problema: un sospetto non riprodotto non è stato classificato come vulnerabilità;
-  \item analisi delle dipendenze con \texttt{npm audit} per le librerie JavaScript e \texttt{pip-audit} per quelle Python del notebook, e verifica che ogni componente sia ancora supportato dal produttore;
-  \item ricerca di segreti nella storia completa del repository, con lo strumento \texttt{gitleaks} e con ricerche mirate di chiavi private, password e file di configurazione;
+  \item rilettura del codice, controllo per controllo;
+  \item \textbf{riproduzione} di ogni sospetto con una prova contro il codice reale: un sospetto non riprodotto non è stato classificato come vulnerabilità;
+  \item analisi delle dipendenze con \texttt{npm audit} e \texttt{pip-audit}, e verifica che ogni componente sia ancora supportato dal produttore;
+  \item ricerca di segreti in tutta la storia del repository con \texttt{gitleaks} e con ricerche mirate;
   \item analisi statica del codice TypeScript con CodeQL.
 \end{itemize}
-Per ogni problema confermato è stato scritto prima un test che lo riproduce e fallisce, poi la correzione, poi verificato che il test passi e che nessun altro test si rompa. Il nuovo test resta nella suite, così che il problema non possa ripresentarsi.
+Per ogni problema confermato si è scritto prima un test che lo riproduce e fallisce, poi la correzione; il test resta nella suite, così il problema non può ripresentarsi.
 
-\subsection{Problemi trovati e correzioni}
-La tabella~\ref{tab:revisione} riassume i risultati. La gravità tiene conto di quanto il problema è facile da sfruttare e di cosa ne ottiene un attaccante; la colonna \emph{Stato} distingue i problemi corretti nel codice da quelli che restano come rischi residui, discussi più avanti.
+\subsection{Risultati}
+La tabella~\ref{tab:revisione} riassume i problemi confermati. La gravità tiene conto di quanto il problema è facile da sfruttare e di cosa ne ottiene un attaccante.
 
 \begin{table}[H]
 \centering\footnotesize
@@ -24,42 +24,34 @@ La tabella~\ref{tab:revisione} riassume i risultati. La gravità tiene conto di 
 \# & Problema & Gravità & Correzione & Stato\\
 \midrule
 1 & Chiunque poteva bloccare il login di un utente sostituendone la challenge & Alta & Challenge indicizzate per valore e lette dai dati firmati & Corretto\\
-2 & Gli errori interni arrivavano al client con stack trace, percorsi e messaggi del database & Alta & Gestore finale degli errori con messaggi generici & Corretto\\
-3 & Registro degli accessi in chiaro nel database, compresa la motivazione clinica degli accessi d'emergenza & Alta & Voci cifrate e legate alla loro impronta on-chain & Corretto\\
-4 & Le opzioni di login rivelavano se un utente esisteva e quali credenziali aveva & Media & Opzioni uguali per tutti, passkey individuabili & Corretto\\
-5 & Nessun limite di frequenza; ogni richiesta di cartella produce una transazione & Media & 60 richieste al minuto per client sulle rotte pubbliche e per utente sulle cartelle & Corretto\\
-6 & Nessuna intestazione di sicurezza; risposte con dati sanitari conservabili in cache & Media & \texttt{Cache-Control: no-store}, CSP, \texttt{nosniff}, protezione dai frame, HSTS in produzione & Corretto\\
-7 & Contatore anti-clonazione aggiornato senza controllo di concorrenza & Media & Compare-and-set sul valore atteso & Corretto\\
-8 & Nessuna revoca di passkey o di sessioni; nessuna durata massima della sessione & Media & Revoca, uscita da tutti i dispositivi, durata massima di 8 ore, revoca d'ufficio & Corretto\\
-9 & Chiave unica e rinunciabile in un attimo per l'amministrazione dei contratti & Media & Passaggio di consegne in due fasi con attesa, pausa con ruolo separato & Corretto\\
-10 & Metadati collegabili sulla blockchain pubblica & Media & Pseudonimi dedicati; serve una scelta architetturale & Residuo\\
-11 & Nessun blocco all'uso delle chiavi pubbliche di Hardhat su una rete reale & Bassa & Avvio rifiutato fuori dalla rete locale & Corretto\\
-12 & Parametri di Argon2id letti dal file senza limiti & Bassa & Parametri accettati solo entro limiti & Corretto\\
-13 & Tentativi d'emergenza respinti registrati solo nella console & Bassa & Conservati nel registro cifrato & Corretto\\
-14 & Combinatore del KEM ibrido senza le chiavi pubbliche del destinatario & Bassa & Versione 2 dello schema, come da SP~800-227 & Corretto\\
-15 & Nomi utente nei log del server & Bassa & Nessun dettaglio clinico nei log; nomi conservati per il monitoraggio di sicurezza & Residuo\\
-16 & Vulnerabilità nelle dipendenze di sviluppo della parte on-chain & Bassa & Librerie dei test aggiornate; resta una causa senza correzione compatibile & Residuo\\
-17 & Immagine Docker indicata per nome e non per impronta & Bassa & Immagine fissata con il \emph{digest} & Corretto\\
-18 & Quote del backup delle chiavi pubblicabili per errore se create dentro il progetto & Media & Escluse da Git ovunque; lo script rifiuta le cartelle del progetto & Corretto\\
+2 & Errori interni inviati al client con stack trace e messaggi del database & Alta & Gestore finale degli errori con messaggi generici & Corretto\\
+3 & Registro degli accessi in chiaro nel database & Alta & Voci cifrate e legate alla loro impronta on-chain & Corretto\\
+4 & Le opzioni di login rivelavano se un utente esisteva & Media & Opzioni uguali per tutti, passkey individuabili & Corretto\\
+5 & Nessun limite di frequenza; ogni richiesta di cartella produce una transazione & Media & 60 richieste al minuto per client e per utente & Corretto\\
+6 & Nessuna intestazione di sicurezza; dati sanitari conservabili in cache & Media & \texttt{no-store}, CSP, \texttt{nosniff}, protezione dai frame, HSTS in produzione & Corretto\\
+7 & Contatore anti-riuso aggiornato senza controllo di concorrenza & Media & Compare-and-set sul valore atteso & Corretto\\
+8 & Nessuna revoca di passkey o sessioni, né durata massima della sessione & Media & Revoca, uscita da tutti i dispositivi, durata massima di 8 ore & Corretto\\
+9 & Un'unica chiave di amministrazione dei contratti, cedibile in un attimo & Media & Passaggio in due fasi con attesa, pausa con ruolo separato & Corretto\\
+10 & Quote del backup delle chiavi pubblicabili per errore & Media & Escluse da Git; lo script rifiuta le cartelle del progetto & Corretto\\
+11 & Metadati collegabili sulla blockchain pubblica & Media & Pseudonimi; serve una scelta architetturale & Residuo\\
+12 & Chiavi di prova di Hardhat utilizzabili su una rete reale & Bassa & Avvio rifiutato fuori dalla rete locale & Corretto\\
+13 & Parametri di Argon2id letti dal file senza limiti & Bassa & Parametri accettati solo entro limiti & Corretto\\
+14 & Tentativi d'emergenza respinti non registrati & Bassa & Conservati nel registro cifrato & Corretto\\
+15 & Derivazione del KEM ibrido senza le chiavi pubbliche del destinatario & Bassa & Derivazione conforme a SP~800-227 & Corretto\\
+16 & Immagine Docker indicata per nome e non per impronta & Bassa & Immagine fissata con il \emph{digest} & Corretto\\
+17 & Nomi utente nei log del server & Bassa & Nessun dettaglio clinico nei log & Residuo\\
+18 & Vulnerabilità in una dipendenza di sviluppo dei contratti & Bassa & Vedi sotto & Residuo\\
 \bottomrule
 \end{tabular}
 \caption{Problemi emersi dalla revisione di sicurezza.}\label{tab:revisione}
 \end{table}
 
-Alcuni punti meritano un commento.
+\paragraph{Dipendenze e segreti.} Le dipendenze di backend, frontend e notebook, cioè il codice che va in esecuzione, non hanno vulnerabilità note. Tra gli strumenti di sviluppo dei contratti resta una segnalazione su \texttt{zod}, la libreria con cui Hardhat controlla il proprio file di configurazione: la versione corretta non è compatibile con Hardhat. Il difetto riguarda il consumo di memoria su input forniti dallo sviluppatore stesso e non tocca il servizio; va ricontrollato a ogni aggiornamento di Hardhat. La ricerca di segreti in tutti i commit ha trovato solo le chiavi di prova pubbliche di Hardhat, valide sulla sola rete locale.
 
-\paragraph{Problemi che si nascondevano a vicenda.} Il problema~7 non era sfruttabile nella versione originale per una ragione accidentale: poiché la challenge di login era legata allo username (problema~1), due login contemporanei dello stesso utente non potevano coesistere. Correggere il primo problema avrebbe quindi reso sfruttabile il secondo. Per questo i due sono stati corretti insieme, e il test sul clone usato in parallelo all'originale è stato scritto prima di entrambe le correzioni.
-
-\paragraph{Errori nelle correzioni.} Anche le correzioni possono essere sbagliate. Il test sul contatore conteso, dopo la prima correzione, passava in alcune esecuzioni e falliva in altre: il valore atteso veniva letto troppo tardi (sezione~\ref{sec:fido2}). Un test che fallisce in modo intermittente su codice concorrente segnala quasi sempre una corsa critica reale.
-
-\paragraph{Dalla lettura delle norme.} Il problema~14 non è emerso dal codice ma dalla verifica delle fonti durante la stesura di questa relazione: rileggendo la raccomandazione NIST SP~800-227 per citarla correttamente, è risultato che il combinatore usato non includeva tutto ciò che la raccomandazione indica (sezione~\ref{sec:dati}).
-
-\paragraph{Dipendenze e segreti.} Le dipendenze del backend, del frontend e del notebook, cioè il codice che va effettivamente in esecuzione, non presentano vulnerabilità note. Negli strumenti di sviluppo della cartella \texttt{blockchain}, le librerie \texttt{glob} e \texttt{minimatch} usate da mocha sono fissate a versioni corrette con gli \emph{override} di npm, limitati a mocha perché altri strumenti richiedono le versioni precedenti. Resta una sola segnalazione, la libreria \texttt{zod} con cui Hardhat controlla il proprio file di configurazione: la versione corretta non è compatibile con Hardhat, che con essa smette di segnalare gli errori di configurazione, come verificato in prova. Il difetto riguarda un consumo eccessivo di memoria su input forniti dallo sviluppatore stesso e non tocca il codice in esecuzione; va ricontrollato a ogni aggiornamento di Hardhat. Oltre alle vulnerabilità note, per ogni componente si è verificato che sia ancora supportato dal produttore: una versione senza vulnerabilità note non è necessariamente sicura, se nessuno cerca più le sue vulnerabilità. La ricerca di segreti in tutti i commit ha trovato soltanto le chiavi pubbliche di prova di Hardhat, valide solo sulla rete locale.
-
-\paragraph{Analisi statica.} CodeQL ha segnalato cinque rotte senza limite di frequenza: le quattro della registrazione e del login e le due della firma dei referti, tutte con operazioni costose come la verifica di una firma o una scrittura sulla catena. Le segnalazioni sono state verificate una per una e archiviate come falsi positivi, con la motivazione: il limite c'è, applicato a tutte le rotte del gruppo da un middleware registrato prima delle rotte, e un test ne dimostra l'effetto (risposta 429 oltre la soglia). CodeQL riconosce però solo le librerie di rate limiting più diffuse e non il middleware del progetto. È un limite tipico dell'analisi statica, che segnala schemi senza conoscere l'intenzione: per questo ogni segnalazione va verificata, non accettata o ignorata in blocco.
+\paragraph{Analisi statica.} CodeQL ha segnalato come prive di limite di frequenza cinque rotte di login, registrazione e firma. Le segnalazioni sono state verificate una per una e archiviate come falsi positivi: il limite è applicato a tutte le rotte del gruppo da un middleware del progetto, che CodeQL non riconosce, e un test ne dimostra l'effetto (risposta 429 oltre la soglia). L'analisi statica segnala schemi senza conoscere l'intenzione, per questo ogni segnalazione va verificata e non accettata o ignorata in blocco.
 
 \subsection{Riepilogo dei test}
-La tabella~\ref{tab:test-totali} riporta tutti i test automatici del progetto, compresi quelli della firma dei referti, della pagina dei consensi, del registro per il paziente e della cancellazione su richiesta. Tutti sono superati.
+La tabella~\ref{tab:test-totali} riporta i test automatici del progetto, tutti superati. I flussi visibili all'utente (registrazione, accesso, gestione delle passkey, consultazione e firma dei referti, consensi dal wallet, verifica del registro sulla catena) sono stati provati anche in un browser reale, con un autenticatore virtuale e con un autenticatore di piattaforma.
 
 \begin{table}[H]
 \centering\footnotesize
@@ -79,18 +71,11 @@ Totale & & 191\\
 \caption{Test automatici del progetto.}\label{tab:test-totali}
 \end{table}
 
-Oltre ai test automatici, i flussi visibili all'utente (registrazione, accesso, aggiunta e revoca di una passkey, uscita da tutti i dispositivi, consultazione di una cartella, firma di un referto, concessione e revoca di un consenso dal wallet del paziente, consultazione e verifica sulla catena del registro degli accessi) sono stati provati in un browser reale, con un autenticatore virtuale e con Windows Hello.
-
 \subsection{Rischi residui}\label{sec:residui}
-I rischi che seguono restano anche dopo le correzioni. Alcuni dipendono da scelte che vanno oltre un prototipo, altri sono limiti intrinseci delle tecnologie usate.
-
 \begin{itemize}
-  \item \textbf{Metadati sulla catena pubblica.} Anche con indirizzi pseudonimi, gli eventi pubblici e permanenti collegano tra loro paziente, medico, finalità e orario. Se l'indirizzo di un medico è noto, per esempio quello di un oncologo, si può dedurre chi è in cura da lui, e lo stesso pseudonimo del paziente compare in tutti i suoi consensi. Le mitigazioni possibili sono uno pseudonimo diverso per ogni rapporto tra paziente e medico, prove a conoscenza zero che nascondano l'identità del medico (sezione~\ref{sec:zkp}) oppure una rete \emph{permissioned}, in cui i dati della catena sono visibili solo ai partecipanti autorizzati (sezione~\ref{sec:fabric}). È la ragione principale per cui, in un'adozione reale, la rete pubblica sarebbe probabilmente da evitare.
-  \item \textbf{Backend compromesso.} Un attaccante con il controllo del backend può leggere i dati che il backend decifra e consegnarli senza registrarne l'accesso. Non può però concedere consensi, riscrivere l'audit o registrare come autorizzati accessi senza consenso.
-  \item \textbf{Chiavi in memoria.} A server acceso le chiavi dell'archivio sono nella memoria del processo; la protezione completa richiede un HSM (sezione~\ref{sec:dati}).
-  \item \textbf{Passkey sincronizzate e attestazione.} Le passkey sincronizzate nel cloud spesso non usano il contatore, e senza attestazione il server non sa quale autenticatore abbia creato la passkey (sezione~\ref{sec:fido2}).
-  \item \textbf{Operazioni sensibili senza nuova verifica.} La revoca di una passkey richiede solo una sessione valida; una nuova verifica con la passkey (\emph{step-up}) renderebbe innocua una postazione lasciata aperta.
-  \item \textbf{Database e trasporto.} In produzione servirebbero TLS tra backend e database, la cifratura dei volumi e HTTPS verso i client, con il limite di frequenza configurato per l'eventuale reverse proxy.
-  \item \textbf{Catena di fornitura.} Versioni e immagine del database sono fissate, ma le vulnerabilità vengono scoperte di continuo: il repository ha quindi attivi gli avvisi automatici di GitHub sulle dipendenze (Dependabot), la ricerca dei segreti con blocco del \emph{push} che ne contiene uno e l'analisi statica a ogni modifica; va comunque verificato periodicamente che ogni componente sia ancora supportato. Restano gli strumenti di sviluppo non più mantenuti usati da Hardhat per generare i tipi dei contratti, che non vanno mai in esecuzione nel servizio.
-  \item \textbf{Log del server.} I log contengono nomi utente, utili al monitoraggio della sicurezza ma pur sempre dati personali: vanno conservati per un tempo limitato e protetti come gli altri dati.
+  \item \textbf{Metadati sulla catena pubblica.} Anche con indirizzi pseudonimi, gli eventi collegano paziente, medico, finalità e orario: se è noto l'indirizzo di un oncologo, si può dedurre chi è in cura da lui. Le mitigazioni sono uno pseudonimo per ogni rapporto paziente--medico, prove a conoscenza zero (sezione~\ref{sec:zkp}) o una rete \emph{permissioned} (sezione~\ref{sec:fabric}). È la ragione principale per evitare la rete pubblica in un'adozione reale.
+  \item \textbf{Backend compromesso.} Chi controlla il backend può leggere i dati che il backend decifra senza registrarne l'accesso, ma non può concedere consensi, riscrivere l'audit o far risultare autorizzato un accesso senza consenso.
+  \item \textbf{Operazioni sensibili senza nuova verifica.} La revoca di una passkey richiede solo una sessione valida; una nuova verifica con la passkey (\emph{step-up}) proteggerebbe una postazione lasciata aperta.
+  \item \textbf{Produzione.} Servirebbero TLS verso il database, cifratura dei volumi, HTTPS verso i client, log con conservazione limitata e un controllo periodico che ogni componente sia supportato; il repository ha già attivi gli avvisi sulle dipendenze (Dependabot), il blocco dei \emph{push} con segreti e l'analisi statica.
 \end{itemize}
+Gli altri rischi residui, specifici di un componente, sono discussi nelle sezioni~\ref{sec:fido2}, \ref{sec:blockchain} e~\ref{sec:dati}.

@@ -1,33 +1,9 @@
 \section{Consenso e audit su blockchain}\label{sec:blockchain}
 
-Questa sezione descrive la parte on-chain del sistema e il suo collegamento con il backend: due smart contract scritti in Solidity, che realizzano il registro dei consensi e il registro di audit, il modulo che li pubblica e il codice con cui il backend li usa per decidere se consegnare una cartella. La regola di progetto (sezione~\ref{sec:architettura}) è che sulla blockchain non finisce nessun dato clinico: compaiono soltanto indirizzi pseudonimi, finalità, scadenze, esiti e impronte.
-
-\subsection{Strumenti utilizzati}
-\begin{table}[H]
-\centering\small
-\begin{tabular}{@{}p{.25\textwidth}p{.65\textwidth}@{}}
-\toprule
-Strumento & Ruolo nel progetto\\
-\midrule
-Solidity 0.8 (compilatore \texttt{solc} 0.8.34) & Linguaggio degli smart contract. Dalla versione 0.8 l'aritmetica ha controlli di overflow integrati.\\
-Hardhat 3 e Hardhat Ignition & Ambiente di sviluppo: compila i contratti, esegue una blockchain locale, lancia i test e pubblica i contratti in modo ripetibile.\\
-ethers 6 & Libreria TypeScript per interagire con i contratti, usata sia nei test sia dal backend.\\
-Mocha e Chai & Framework di test e libreria di asserzioni.\\
-OpenZeppelin Contracts\cite{openzeppelin} & Contratti di base già collaudati: \texttt{AccessControlDefaultAdminRules} e \texttt{Pausable}.\\
-\bottomrule
-\end{tabular}
-\caption{Strumenti per la parte on-chain.}
-\end{table}
-Il codice si trova nella cartella \texttt{blockchain/} del repository. I test si eseguono con \texttt{npm test}, che compila i contratti e usa una rete di prova creata da Hardhat, senza costi e senza dipendere da reti pubbliche.
+La parte on-chain è formata da due smart contract in Solidity: il registro dei consensi e il registro di audit. Sulla blockchain non finisce nessun dato clinico, solo indirizzi pseudonimi, finalità, scadenze, esiti e impronte (sezione~\ref{sec:architettura}). I contratti usano Solidity~0.8, che controlla da solo overflow e underflow, e i contratti di base di OpenZeppelin\cite{openzeppelin}; Hardhat~3 li compila, li prova su una rete locale e li pubblica con un modulo di Ignition.
 
 \subsection{Registro dei consensi: \texttt{ConsentRegistry}}
-Il contratto permette a un paziente di concedere a un medico il consenso ad accedere ai propri dati per una \emph{finalità} precisa, fino a una data di scadenza, e di revocarlo in qualsiasi momento.
-
-\paragraph{Consenso per finalità.} Le finalità previste sono tre: cura, ricerca e amministrazione, rappresentate da un \texttt{enum}. Un consenso dato per la cura non autorizza l'uso dei dati per la ricerca, e la revoca per una finalità lascia valide le altre. È il principio di limitazione della finalità del GDPR (art.~5, par.~1, lett.~b\cite{gdpr}) applicato direttamente nel contratto. L'uso di un \texttt{enum} al posto di una stringa ha anche un effetto di sicurezza: i valori ammessi sono fissati dal compilatore, e un valore fuori intervallo viene rifiutato dal decodificatore degli argomenti prima ancora che la funzione venga eseguita.
-
-\paragraph{Stato.} Il contratto mantiene una mappa a tre livelli che associa a ogni terna (paziente, medico, finalità) la scadenza del consenso, espressa come timestamp; il valore zero indica l'assenza di consenso. La mappa è \texttt{private}: la lettura avviene tramite la funzione \texttt{isConsentValid}.
-
-\paragraph{Durata massima.} Un consenso non può durare più di 365 giorni (costante \texttt{MAX\_DURATION}): oltre va rinnovato. Si evita così che restino attivi per sempre consensi dimenticati.
+Il paziente concede a un medico il consenso per una \emph{finalità} (cura, ricerca o amministrazione) fino a una scadenza, e può revocarlo in qualsiasi momento. Un consenso per la cura non vale per la ricerca: è il principio di limitazione della finalità del GDPR (art.~5\cite{gdpr}) applicato nel contratto. La finalità è un \texttt{enum}, quindi un valore fuori intervallo viene rifiutato prima ancora di eseguire la funzione. Un consenso dura al massimo 365 giorni, così non restano attivi per sempre consensi dimenticati.
 
 \begin{lstlisting}[language=Solidity,caption={Concessione, revoca e verifica di un consenso (\texttt{ConsentRegistry.sol}, estratto).},label={lst:consent}]
 // paziente => medico => finalità => scadenza (timestamp); 0 = nessun consenso
@@ -36,9 +12,7 @@ mapping(address patient => mapping(address grantee => mapping(Purpose => uint64 
 
 function grantConsent(address grantee, Purpose purpose, uint64 expiresAt) external whenNotPaused {
     if (grantee == address(0) || grantee == msg.sender) revert InvalidGrantee();
-    if (expiresAt <= block.timestamp || expiresAt > block.timestamp + MAX_DURATION) {
-        revert InvalidExpiry();
-    }
+    if (expiresAt <= block.timestamp || expiresAt > block.timestamp + MAX_DURATION) revert InvalidExpiry();
     _consents[msg.sender][grantee][purpose] = expiresAt;
     emit ConsentGranted(msg.sender, grantee, purpose, expiresAt);
 }
@@ -48,42 +22,33 @@ function revokeConsent(address grantee, Purpose purpose) external {
     delete _consents[msg.sender][grantee][purpose];
     emit ConsentRevoked(msg.sender, grantee, purpose);
 }
-
-function isConsentValid(address patient, address grantee, Purpose purpose)
-    external view returns (bool) {
-    return _consents[patient][grantee][purpose] > block.timestamp;
-}
 \end{lstlisting}
 
-Il contratto identifica il paziente con \texttt{msg.sender} e non con \texttt{tx.origin}: un contratto malevolo non può far concedere consensi a nome di un paziente facendogli chiamare una funzione intermedia, e ciascuno può revocare soltanto i propri consensi. La revoca non è soggetta alla pausa: con il contratto fermo non si concedono consensi nuovi, ma il diritto del paziente di ritirare quelli esistenti non deve poter essere bloccato. Gli eventi hanno paziente, medico e finalità tra i campi indicizzati, così che lo storico dei consensi si possa filtrare senza leggere lo stato.
+Il paziente è identificato con \texttt{msg.sender} e non con \texttt{tx.origin}, così un contratto intermedio non può concedere consensi a suo nome, e ciascuno revoca solo i propri. La revoca non è soggetta alla pausa: con il contratto fermo non si concedono consensi nuovi, ma il diritto di ritirare quelli esistenti non si può bloccare.
 
 \subsection{Registro di audit: \texttt{AuditLog}}
-Il contratto registra, in sola aggiunta, ogni tentativo di accesso a una cartella clinica, sia riuscito sia negato.
-
-\paragraph{Scelte di progetto.}
+Il contratto registra in sola aggiunta ogni tentativo di accesso a una cartella, riuscito o negato (listato~\ref{lst:audit}).
 \begin{itemize}
-  \item \textbf{Eventi invece di stato.} Ogni voce è un evento, che resta nel log della blockchain e non può essere modificato né cancellato. È più economico del salvataggio nello stato. Il contratto conserva solo il contatore \texttt{totalEntries}, che assegna a ogni voce un identificatore progressivo; la numerazione è unica per accessi ordinari e d'emergenza, quindi una voce mancante lascerebbe un buco visibile.
-  \item \textbf{Chi può scrivere.} Le funzioni di registrazione sono riservate al ruolo \texttt{RECORDER\_ROLE}, assegnato al solo backend. Senza questa restrizione chiunque potrebbe riempire l'audit di voci false; l'amministratore stesso non può scrivere voci se non ha anche quel ruolo.
-  \item \textbf{Collegamento con il consenso.} Una voce con esito \emph{concesso} è accettata solo se, in quel momento, il registro dei consensi considera valido il consenso \emph{per quella finalità}; altrimenti la transazione fallisce con \texttt{ConsentNotValid}. Neppure un backend compromesso può quindi registrare come autorizzato un accesso senza consenso.
-  \item \textbf{Nessun dato clinico.} Il campo \texttt{recordHash} contiene l'impronta SHA-256 dei dettagli dell'accesso, che restano off-chain e cifrati (sezione~\ref{sec:dati}).
+  \item \textbf{Eventi invece di stato.} Ogni voce è un evento, che non si può modificare né cancellare e costa meno di una scrittura nello stato. Un contatore assegna a ogni voce un numero progressivo, unico per accessi ordinari e d'emergenza: una voce mancante lascerebbe un buco visibile.
+  \item \textbf{Chi scrive.} Solo il ruolo \texttt{RECORDER\_ROLE}, assegnato al backend; nemmeno l'amministratore può scrivere voci senza quel ruolo.
+  \item \textbf{Legame con il consenso.} Una voce con esito \emph{concesso} è accettata solo se in quel momento il consenso per quella finalità è valido: neppure un backend compromesso può registrare come autorizzato un accesso senza consenso.
+  \item \textbf{Nessun dato clinico.} Il campo \texttt{recordHash} è l'impronta SHA-256 dei dettagli, che restano fuori dalla catena, cifrati (sezione~\ref{sec:dati}).
 \end{itemize}
 
-\paragraph{Accesso d'emergenza.} Un paziente incosciente in pronto soccorso non può dare il consenso, ma i suoi dati possono servire a salvargli la vita: il GDPR ammette il trattamento quando è necessario a tutelare un interesse vitale dell'interessato (art.~9, par.~2, lett.~c\cite{gdpr}). Per questo caso il contratto offre una seconda funzione, \texttt{recordEmergencyAccess}, che non richiede consenso ma pone tre condizioni: il medico deve avere il ruolo \texttt{EMERGENCY\_ROLE}, assegnato dall'amministratore al personale di pronto soccorso; deve indicare una motivazione, di cui sulla catena va solo l'impronta; e l'accesso emette un evento dedicato, \texttt{EmergencyAccess}, così che un revisore possa ritrovarli tutti con un unico filtro. È lo schema noto come \emph{break-glass}: l'accesso è sempre possibile, ma mai silenzioso.
+\paragraph{Accesso d'emergenza.} Un paziente incosciente non può dare il consenso, ma il GDPR ammette il trattamento necessario a tutelare un suo interesse vitale (art.~9, par.~2, lett.~c). La funzione \texttt{recordEmergencyAccess} non richiede consenso, ma pone tre condizioni: il medico deve avere il ruolo \texttt{EMERGENCY\_ROLE}, deve indicare una motivazione (sulla catena ne va solo l'impronta) e l'accesso emette un evento dedicato, che un revisore ritrova con un solo filtro. È lo schema \emph{break-glass}: l'accesso è sempre possibile, ma mai silenzioso.
 
 \begin{lstlisting}[language=Solidity,caption={Registrazione degli accessi (\texttt{AuditLog.sol}, estratto).},label={lst:audit}]
 function recordAccess(address patient, address accessor, ConsentRegistry.Purpose purpose,
                       Outcome outcome, bytes32 recordHash)
     external onlyRole(RECORDER_ROLE) returns (uint256 entryId) {
-    if (outcome == Outcome.Granted &&
-        !consentRegistry.isConsentValid(patient, accessor, purpose)) {
+    if (outcome == Outcome.Granted && !consentRegistry.isConsentValid(patient, accessor, purpose)) {
         revert ConsentNotValid();
     }
     entryId = ++totalEntries;
     emit AccessRecorded(entryId, patient, accessor, purpose, outcome, recordHash);
 }
 
-function recordEmergencyAccess(address patient, address accessor,
-                               bytes32 reasonHash, bytes32 recordHash)
+function recordEmergencyAccess(address patient, address accessor, bytes32 reasonHash, bytes32 recordHash)
     external onlyRole(RECORDER_ROLE) returns (uint256 entryId) {
     if (!hasRole(EMERGENCY_ROLE, accessor)) revert NotEmergencyStaff(accessor);
     if (reasonHash == bytes32(0)) revert MissingReason();
@@ -92,84 +57,22 @@ function recordEmergencyAccess(address patient, address accessor,
 }
 \end{lstlisting}
 
-\subsection{Amministrazione dei contratti}
-Chi amministra i contratti assegna i ruoli: può dare a un indirizzo il ruolo \texttt{RECORDER\_ROLE} o \texttt{EMERGENCY\_ROLE} e, nel registro dei consensi, mettere in pausa le nuove concessioni. La sua chiave è quindi il bersaglio più interessante per un attaccante. Nella prima versione l'amministrazione usava \texttt{Ownable} e \texttt{AccessControl} nella forma più semplice: chi rubava la chiave poteva assegnarsi subito qualunque ruolo o nominare altri amministratori, e la funzione \texttt{renounceOwnership} permetteva di rinunciare alla proprietà in un attimo, lasciando per sempre il registro senza nessuno in grado di toglierlo dalla pausa.
+\paragraph{Amministrazione.} La chiave dell'amministratore, che assegna i ruoli, è il bersaglio più interessante per un attaccante. Entrambi i contratti usano \texttt{AccessControlDefaultAdminRules} di OpenZeppelin: l'amministratore è uno solo, il passaggio di consegne avviene in due fasi separate da un'attesa di due giorni, visibile sulla catena e annullabile, e anche la rinuncia al ruolo richiede la stessa attesa. La pausa (\emph{Emergency Stop}) spetta a un ruolo separato, \texttt{PAUSER\_ROLE}; nella rete locale il modulo di pubblicazione lo assegna all'amministratore, in produzione andrebbe a una persona diversa, e l'amministratore stesso dovrebbe essere un portafoglio multifirma.
 
-Entrambi i contratti usano ora \texttt{AccessControlDefaultAdminRules} di OpenZeppelin, che impone queste regole:
-\begin{itemize}
-  \item l'amministratore è uno solo e non può nominarne un secondo;
-  \item il passaggio di consegne avviene in due fasi, avvio da parte dell'amministratore e accettazione da parte del nuovo, separate da un'attesa di due giorni (\texttt{ADMIN\_TRANSFER\_DELAY}); il passaggio in corso è visibile a tutti sulla catena e può essere annullato;
-  \item anche la rinuncia al ruolo richiede la stessa attesa.
-\end{itemize}
-La pausa, cioè il pattern \emph{Emergency Stop}, spetta a un ruolo separato, \texttt{PAUSER\_ROLE}: chi si occupa della sicurezza può fermare le nuove concessioni senza poter amministrare il resto. In produzione l'amministratore dovrebbe essere a sua volta un portafoglio multifirma, per esempio con 3 firme su 5: le regole sui tempi danno modo di accorgersi del furto di una chiave, la multifirma evita che una sola persona possa agire da sola.
-
-\subsection{Pubblicazione e collegamento con il backend}\label{sec:collegamento}
-I contratti vengono pubblicati con un modulo di Hardhat Ignition, il file \texttt{CartellaClinica.ts} nella cartella \texttt{ignition/modules}, che descrive in modo dichiarativo cosa creare e in che ordine: il registro dei consensi, il registro di audit collegato al primo, il ruolo \texttt{RECORDER\_ROLE} al backend e il ruolo di pausa. Il backend usa un account dedicato che ha solo il ruolo di scrittura nell'audit, secondo il principio del privilegio minimo: se la sua chiave venisse rubata, l'attaccante potrebbe scrivere voci negate, ma non assegnarsi altri ruoli né registrare come autorizzato un accesso senza consenso. Un test esegue lo stesso modulo e verifica la distribuzione dei ruoli.
-
-La blockchain locale di Hardhat riparte da zero a ogni riavvio, mentre Ignition ricorda i deploy già eseguiti. Durante le prove questo ha prodotto una situazione insidiosa: dopo un riavvio del nodo, un nuovo deploy rispondeva che i contratti erano già pubblicati e restituiva indirizzi a cui non corrispondeva più alcun codice. Lo script di deploy locale usa quindi l'opzione \texttt{-{}-reset}, e il backend all'avvio controlla che agli indirizzi configurati ci sia davvero un contratto, rifiutandosi di partire altrimenti.
-
-Lato backend, l'interfaccia \texttt{Ledger} (sezione~\ref{sec:architettura}) offre tre operazioni: leggere se un consenso è valido, registrare un accesso, registrare un accesso d'emergenza. L'implementazione \texttt{EthersLedger} usa ethers con un'ABI ridotta alle sole funzioni, eventi ed errori necessari; quando un contratto rifiuta una transazione, traduce il codice dell'errore nel suo nome (per esempio \texttt{ConsentNotValid}), così che il controller possa decidere cosa fare. Gli account di sviluppo di Hardhat derivano da una frase mnemonica pubblicata nella documentazione, e le loro chiavi private sono quindi note a chiunque: il backend si rifiuta di partire se una di quelle chiavi è configurata per una rete diversa da quella locale.
-
-\paragraph{Un difetto trovato dai test: la numerazione delle transazioni.} Ogni transazione inviata da un account Ethereum porta un numero progressivo, il \emph{nonce}, e il nodo scarta quelle con un numero fuori sequenza. La prima versione del modulo usava il gestore dei nonce di ethers (\texttt{NonceManager}), che però consuma un numero anche quando la transazione viene rifiutata prima dell'invio. Un test d'integrazione ha mostrato la conseguenza: dopo un solo accesso respinto, tutte le scritture successive del backend venivano scartate. Bastava quindi una richiesta senza consenso per bloccare l'intero registro di audit, un piccolo \emph{denial of service}. Il gestore è stato sostituito da una coda (listato~\ref{lst:queue}): le transazioni del backend partono una alla volta, e ognuna legge il nonce dal nodo solo dopo che la precedente è stata trasmessa. Due test lo verificano: dopo un rifiuto il backend continua a scrivere, e cinque scritture contemporanee ricevono identificativi distinti; senza la correzione entrambi falliscono.
-
-\begin{lstlisting}[language=TypeScript,caption={Invio in coda delle transazioni del backend (\texttt{models/ethersLedger.ts}, estratto).},label={lst:queue}]
-private async send(fn: string, args: unknown[], eventName: string): Promise<bigint> {
-  const sending = this.queue.then(
-    () => this.audit.getFunction(fn)(...args) as Promise<ContractTransactionResponse>,
-  );
-  this.queue = sending.catch(() => undefined);
-  try {
-    const tx = await sending;
-    return this.entryId((await tx.wait())!, eventName);
-  } catch (err) {
-    // Se il contratto rifiuta, traduce il codice dell'errore nel suo nome.
-    const data = (err as { data?: string }).data;
-    const decoded = data ? this.audit.interface.parseError(data) : null;
-    if (decoded) throw new LedgerRevert(decoded.name);
-    throw err;
-  }
-}
-\end{lstlisting}
-
-\subsection{Concessione e revoca da parte del paziente}\label{sec:consenso-paziente}
-Il consenso deve essere un atto del paziente, non del sistema che lo custodisce. Per questo le transazioni di concessione e revoca non passano dal backend: il paziente le firma con il proprio wallet nel browser, e il backend non possiede né vede la sua chiave privata. L'applicazione web dialoga con il wallet attraverso l'interfaccia standard EIP-1193\cite{eip1193}, quella esposta da MetaMask e dagli altri wallet come oggetto \texttt{window.ethereum}, usata tramite la libreria ethers.
-
-Il backend fornisce solo informazioni pubbliche, tramite tre rotte di sola lettura accessibili con una sessione valida: il profilo dell'utente (ruolo e indirizzo registrato), l'elenco dei medici con il loro indirizzo e i dati della rete (identificativo della catena e indirizzo del registro dei consensi). Quest'ultima rotta evita di scrivere l'indirizzo del contratto nel codice del frontend, che altrimenti andrebbe ricompilato a ogni nuova pubblicazione.
-
-Collegando il wallet, la pagina esegue tre controlli prima di permettere qualsiasi operazione (listato~\ref{lst:wallet}): che un wallet sia presente, che sia collegato alla rete giusta, chiedendo altrimenti di cambiarla, e che l'account selezionato sia proprio lo pseudonimo registrato per quel paziente. L'ultimo controllo non è una misura di sicurezza, perché il contratto accetta il consenso da chiunque lo firmi e lo intesta al firmatario; serve a evitare un errore facile, cioè concedere un consenso da un account diverso, che il backend non riconoscerebbe come quello del paziente e che quindi non avrebbe alcun effetto.
-
-\begin{lstlisting}[language=TypeScript,caption={Collegamento del wallet e controlli preliminari (\texttt{frontend/src/Consensi.tsx}, estratto).},label={lst:wallet}]
-const p = new BrowserProvider(window.ethereum, undefined, { cacheTimeout: -1 });
-await p.send("eth_requestAccounts", []);
-if (Number((await p.getNetwork()).chainId) !== rete.chainId) {
-  await p.send("wallet_switchEthereumChain", [{ chainId: "0x" + rete.chainId.toString(16) }]);
-}
-const account = (await p.getSigner()).address;
-if (account !== indirizzo) {
-  throw new Error(`Nel wallet è selezionato ${account}: scegli l'account ${indirizzo}...`);
-}
-\end{lstlisting}
-
-Per concedere un consenso il paziente sceglie il medico, la finalità e la durata, limitata nell'interfaccia a 365 giorni come nel contratto; la scadenza è calcolata dall'orario dell'ultimo blocco e non dall'orologio del computer, perché è con il primo che il contratto la confronta. Il wallet mostra la transazione e il paziente la approva. L'elenco dei consensi attivi è ricostruito dalla catena stessa: la pagina legge gli eventi \texttt{ConsentGranted} filtrati sull'indirizzo del paziente, tiene per ogni coppia medico e finalità l'ultimo, e lo conferma con \texttt{isConsentValid}, così che i consensi revocati o scaduti non compaiano. Ogni consenso attivo ha accanto il pulsante di revoca, che produce a sua volta una transazione firmata dal paziente.
-
-Durante la verifica nel browser l'elenco, subito dopo una concessione, a volte non mostrava il nuovo consenso. La causa era una cache della libreria: per 250 millisecondi ethers riusa la risposta di una richiesta identica, e sulla catena locale, dove ogni transazione è inclusa all'istante, la rilettura degli eventi cadeva dentro quella finestra e restituiva l'elenco precedente. La cache è stata disattivata per la pagina dei consensi, con lo stesso accorgimento già adottato nel backend.
-
-Un secondo problema è emerso solo con un wallet reale. MetaMask parte di solito dalla rete principale di Ethereum; la pagina gli chiede di passare alla rete del registro, ma l'oggetto con cui ethers dialoga con il wallet resta legato alla rete su cui è stato creato e, al primo uso successivo, si blocca segnalando il cambio di rete. Dopo il passaggio la pagina crea quindi un nuovo collegamento e verifica che la rete sia quella attesa. Per la stessa ragione la pagina ascolta gli eventi \texttt{chainChanged} e \texttt{accountsChanged} previsti da EIP-1193: se il paziente passa a un'altra rete o a un altro account mentre è collegato, il collegamento viene annullato e va rifatto, così che i controlli sull'indirizzo vengano ripetuti.
-
-Il flusso completo è stato provato in un browser reale con un autenticatore virtuale e un wallet collegato al nodo locale: senza consenso il medico viene respinto; il paziente concede il consenso per la cura e il medico apre la cartella e firma un referto; il paziente revoca e il medico viene di nuovo respinto; con un account diverso da quello registrato la pagina rifiuta di procedere. La prova è stata ripetuta con MetaMask, partendo dalla rete principale, e con un wallet simulato che cambia rete e account durante l'uso.
+\subsection{Collegamento con il backend}\label{sec:collegamento}
+Il modulo di Ignition pubblica i due contratti, li collega e assegna al backend il solo ruolo \texttt{RECORDER\_ROLE} (privilegio minimo): con la sua chiave un attaccante potrebbe scrivere voci negate, ma non assegnarsi altri ruoli né registrare accessi concessi senza consenso. Il backend usa i contratti attraverso l'interfaccia \texttt{Ledger}, implementata con ethers: legge i consensi, registra gli accessi e traduce gli errori dei contratti nel loro nome (per esempio \texttt{ConsentNotValid}). Le transazioni partono in coda, una alla volta, perché ognuna porta un numero progressivo (\emph{nonce}) e il nodo scarta quelle fuori sequenza: due test verificano che il backend continui a scrivere dopo un rifiuto e che scritture contemporanee ricevano numeri distinti. All'avvio il backend controlla che agli indirizzi configurati ci sia davvero un contratto, e rifiuta le chiavi pubbliche di prova di Hardhat su una rete diversa da quella locale.
 
 \subsection{Accesso a una cartella}\label{sec:accesso}
-L'accesso del medico avviene con una richiesta \texttt{POST /records/access} che indica il paziente e la finalità. Ogni utente ha nel database un profilo con il ruolo (medico o paziente) e l'indirizzo sulla catena, assegnati dalla struttura dopo l'identificazione; per il paziente l'indirizzo è lo pseudonimo dedicato al registro dei consensi. Il controller esegue, nell'ordine:
+Ogni utente ha nel database un profilo con il ruolo e l'indirizzo sulla catena, assegnati dalla struttura; per il paziente l'indirizzo è uno pseudonimo dedicato al registro dei consensi. Alla richiesta di un medico (\texttt{POST /records/access}, con paziente e finalità) il backend esegue, nell'ordine:
 \begin{enumerate}
-  \item il controllo della sessione e del limite di frequenza per utente, comuni a tutte le rotte delle cartelle;
-  \item il controllo del ruolo: solo un medico può consultare una cartella;
-  \item la validazione del paziente e della finalità. Le finalità ammesse stanno in una \texttt{Map} e non in un normale oggetto JavaScript: con un oggetto, valori come \texttt{toString} o \texttt{\_\_proto\_\_} avrebbero trovato una proprietà ereditata e superato il controllo;
-  \item la lettura del consenso sulla catena;
-  \item la scrittura dell'esito nel registro di audit, sia concesso sia negato, con i dettagli cifrati nel registro off-chain;
-  \item solo se l'accesso è concesso e la scrittura è riuscita, la decifratura e la consegna dei referti.
+  \item controllo della sessione e del limite di frequenza per utente;
+  \item controllo del ruolo: solo un medico consulta le cartelle;
+  \item validazione di paziente e finalità, con una \texttt{Map}: in un normale oggetto JavaScript valori come \texttt{\_\_proto\_\_} troverebbero una proprietà ereditata e passerebbero il controllo;
+  \item lettura del consenso sulla catena;
+  \item scrittura dell'esito nel registro di audit, concesso o negato;
+  \item solo se l'accesso è concesso e registrato, decifratura e consegna dei referti.
 \end{enumerate}
-
-Il listato~\ref{lst:access} mostra i passi 4 e 5. Due casi limite sono gestiti esplicitamente. Se il paziente revoca il consenso proprio tra la lettura e la scrittura, il contratto rifiuta l'esito \emph{concesso}: il backend registra allora l'accesso come negato e non consegna nulla, quindi a decidere è sempre la catena. Se invece la blockchain non risponde, il backend non consegna la cartella e risponde che il servizio non è disponibile: un accesso senza traccia nell'audit non deve essere possibile (\emph{fail-closed}).
+Se il paziente revoca il consenso tra la lettura e la scrittura, il contratto rifiuta l'esito \emph{concesso} e il backend registra l'accesso come negato: decide sempre la catena. Se la blockchain non risponde, il backend non consegna nulla: senza traccia nell'audit non c'è accesso (\emph{fail-closed}, listato~\ref{lst:access}). L'accesso d'emergenza ha una rotta separata, con motivazione obbligatoria da 10 a 500 caratteri; un tentativo respinto dal contratto non lascia traccia sulla catena, ma resta nel registro cifrato fuori dalla catena.
 
 \begin{lstlisting}[language=TypeScript,caption={Consenso, audit e comportamento in caso di guasto (\texttt{controllers/records.ts}, estratto).},label={lst:access}]
 try {
@@ -177,8 +80,7 @@ try {
   try {
     entryId = await audit(granted);
   } catch (err) {
-    // Il consenso è stato revocato tra la lettura e la scrittura: il contratto
-    // rifiuta "concesso", e l'accesso viene registrato e trattato come negato.
+    // Consenso revocato tra lettura e scrittura: il contratto rifiuta "concesso".
     if (!(err instanceof LedgerRevert && err.errorName === "ConsentNotValid")) throw err;
     granted = false;
     entryId = await audit(false);
@@ -190,22 +92,12 @@ try {
 }
 \end{lstlisting}
 
-L'accesso d'emergenza usa una rotta separata, \texttt{POST /records/emergency}, con una motivazione obbligatoria tra 10 e 500 caratteri. Il backend non decide da sé se il medico sia abilitato: lo stabilisce il contratto, che è l'unica fonte di verità sui ruoli. Un tentativo respinto non lascia traccia sulla catena, perché la transazione viene annullata; il backend lo conserva comunque nel registro off-chain cifrato, segnato come non registrato sulla catena, perché un tentativo d'emergenza non autorizzato va sempre revisionato.
+\subsection{Il paziente: consensi e registro degli accessi}\label{sec:consenso-paziente}
+Il consenso è un atto del paziente: le transazioni di concessione e revoca le firma lui, con il proprio wallet, e il backend non vede mai la sua chiave. La pagina dialoga con il wallet attraverso l'interfaccia standard EIP-1193\cite{eip1193}. Prima di ogni operazione controlla che il wallet sia sulla rete giusta, chiedendo altrimenti di cambiarla, e che l'account selezionato sia lo pseudonimo registrato per il paziente; se nel wallet cambiano rete o account, il collegamento va rifatto. L'elenco dei consensi attivi è ricostruito dalla catena, dagli eventi del registro filtrati sull'indirizzo del paziente e confermati con \texttt{isConsentValid}.
 
-\subsection{Registro degli accessi per il paziente}\label{sec:registro-paziente}
-Il paziente ha diritto di sapere chi ha consultato i suoi dati, quando e perché (art.~15 del GDPR\cite{gdpr}). Nella pagina dei consensi trova quindi l'elenco degli accessi alla propria cartella, dal più recente: le consultazioni concesse con la loro finalità, i tentativi negati per mancanza di consenso, i referti aggiunti e gli accessi d'emergenza, riusciti o respinti, con la motivazione scritta dal medico. Il backend fornisce l'elenco con la rotta \texttt{GET /records/access-log}, riservata al paziente stesso: un medico che la chiama riceve un rifiuto, e ogni paziente vede solo le voci che lo riguardano.
-
-Mostrare l'elenco non basta, perché verrebbe dal backend, cioè proprio dal componente di cui l'audit deve permettere di non fidarsi. Ogni voce riporta perciò il numero della voce sulla catena e l'impronta dei dettagli, e il pulsante \emph{Verifica sulla blockchain} fa il confronto nel browser del paziente, con il suo wallet e senza passare dal backend (listato~\ref{lst:verifica}). Il browser legge dal contratto di audit tutti gli eventi che riguardano l'indirizzo del paziente e controlla due cose:
-\begin{itemize}
-  \item per ogni voce mostrata, che sulla catena esista la voce con lo stesso numero e la stessa impronta: se il backend alterasse i dettagli di un accesso, l'impronta non coinciderebbe;
-  \item che nessun evento della catena manchi dall'elenco: se il backend nascondesse un accesso scomodo, la pagina lo segnalerebbe indicando il numero della voce mancante.
-\end{itemize}
+\paragraph{Registro degli accessi.}\label{sec:registro-paziente} Il paziente ha diritto di sapere chi ha consultato i suoi dati, quando e perché (art.~15 GDPR). Nella stessa pagina trova l'elenco degli accessi alla sua cartella: consultazioni con la finalità, tentativi negati, referti aggiunti, accessi d'emergenza con la motivazione. L'elenco viene dal backend, cioè proprio dal componente di cui l'audit deve permettere di non fidarsi. Il pulsante \emph{Verifica sulla blockchain} fa quindi il confronto nel browser del paziente, con il suo wallet (listato~\ref{lst:verifica}): legge gli eventi del registro di audit che riguardano il suo indirizzo e controlla che ogni voce mostrata abbia sulla catena lo stesso numero e la stessa impronta, e che nessun evento della catena manchi dall'elenco. Un backend che alterasse un accesso o ne nascondesse uno verrebbe scoperto. La verifica non copre i tentativi d'emergenza respinti, che sulla catena non ci sono, né un accesso che il backend avesse consegnato senza registrarlo (sezione~\ref{sec:residui}).
 
 \begin{lstlisting}[language=TypeScript,caption={Confronto tra il registro mostrato dal backend e la catena (\texttt{frontend/src/RegistroAccessi.tsx}, estratto).},label={lst:verifica}]
-const sullaCatena = new Map<string, string>();
-for (const ev of eventi) {
-  if (ev instanceof EventLog) sullaCatena.set(ev.args.entryId.toString(), String(ev.args.recordHash).toLowerCase());
-}
 for (const v of voci) {
   if (v.entryId === null) continue;
   const hash = sullaCatena.get(v.entryId);
@@ -215,62 +107,38 @@ const mostrate = new Set(voci.map((v) => v.entryId));
 setMancanti([...sullaCatena.keys()].filter((id) => !mostrate.has(id)));
 \end{lstlisting}
 
-La verifica copre le voci scritte sulla catena. Non può coprire i tentativi d'emergenza respinti dal contratto, che sulla catena non lasciano traccia e restano solo nel registro cifrato, né un accesso che il backend avesse consegnato senza registrarlo: è il limite già indicato per un backend compromesso (sezione~\ref{sec:residui}).
-
-\subsection{Design pattern e vulnerabilità considerate}
-Il codice segue i design pattern di sicurezza per gli smart contract\cite{wohrer-patterns} e tiene conto delle vulnerabilità note della piattaforma Ethereum\cite{atzei-survey}. La tabella riassume dove ciascuno è applicato e quando non è pertinente.
+\subsection{Design pattern e vulnerabilità}
+La tabella~\ref{tab:pattern} collega i pattern e le vulnerabilità note degli smart contract\cite{wohrer-patterns,atzei-survey} alle scelte del progetto.
 
 \begin{table}[H]
 \centering\footnotesize
-\renewcommand{\arraystretch}{1.25}
-\begin{tabular}{@{}p{.22\textwidth}p{.7\textwidth}@{}}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}p{.25\textwidth}p{.67\textwidth}@{}}
 \toprule
-Pattern o vulnerabilità & Applicazione nel progetto\\
+Pattern o vulnerabilità & Nel progetto\\
 \midrule
-Access Restriction & \texttt{onlyRole} per scrivere nell'audit (\texttt{RECORDER\_ROLE}) e per la pausa (\texttt{PAUSER\_ROLE}); amministrazione con passaggio di consegne ritardato.\\
-Emergency Stop & \texttt{Pausable} blocca le nuove concessioni; la revoca resta sempre possibile.\\
-Guard Check & Controlli iniziali con \emph{custom error} su argomenti, scadenza, consenso, ruolo d'emergenza e motivazione.\\
-Validazione degli input & \texttt{enum} per la finalità: valori fuori intervallo rifiutati dal decodificatore.\\
-\texttt{tx.origin} & Non usato: l'identità del chiamante è sempre \texttt{msg.sender}.\\
-Reentrancy / Checks-Effects-Interactions & Nessun trasferimento di ether né chiamata a codice esterno non fidato: l'unica chiamata esterna è la lettura (\texttt{view}) su \texttt{ConsentRegistry}, un contratto noto e fissato come \texttt{immutable}. Le funzioni seguono comunque l'ordine controlli, effetti, eventi.\\
-Overflow e underflow & Solidity 0.8 verifica l'aritmetica; il contatore \texttt{totalEntries} usa \texttt{uint256}.\\
+Access Restriction & \texttt{onlyRole} per l'audit e la pausa; amministrazione con passaggio ritardato.\\
+Guard Check & Controlli iniziali con \emph{custom error} su argomenti, scadenza, consenso, ruolo e motivazione.\\
+Emergency Stop & \texttt{Pausable} ferma le nuove concessioni; la revoca resta possibile.\\
+Checks-Effects-Interactions, reentrancy & Nessun trasferimento di ether né chiamata a contratti non fidati: l'unica chiamata esterna è una lettura sul registro dei consensi, fissato come \texttt{immutable}.\\
+Pull over Push & Non pertinente: nessun pagamento.\\
+\texttt{tx.origin} & Non usato: sempre \texttt{msg.sender}.\\
+Overflow e underflow & Controllati da Solidity 0.8.\\
 Visibilità & Funzioni \texttt{external} e stato \texttt{private} dichiarati esplicitamente.\\
-Dipendenza dal timestamp & \texttt{block.timestamp} è usato per le scadenze. Chi produce i blocchi può spostarlo di pochi secondi, accettabile per scadenze di ore o giorni; non va usato per la casualità.\\
+Timestamp & Usato solo per scadenze di giorni, dove pochi secondi di scarto non contano; mai per la casualità.\\
 Denial of Service & Nessun ciclo su dati non limitati: ogni operazione ha costo costante.\\
-Pull over Push & Non ci sono pagamenti da effettuare.\\
 \bottomrule
 \end{tabular}
-\caption{Design pattern e vulnerabilità considerati nei contratti.}
+\caption{Pattern e vulnerabilità considerati.}\label{tab:pattern}
 \end{table}
 
 \subsection{Test}\label{sec:test}
-I contratti sono verificati con 36 test automatici in TypeScript; altri 8 test d'integrazione, nel backend, usano il nodo locale vero con i contratti pubblicati dal modulo di Ignition.
+I contratti hanno 36 test: 13 sul registro dei consensi (finalità separate, scadenze ammesse, revoca solo dei propri consensi, pausa), 11 sull'audit (solo il \texttt{RECORDER} scrive, accesso concesso solo con consenso valido per la stessa finalità, emergenza solo per il personale abilitato e con motivazione), 11 sull'amministrazione (un solo amministratore, passaggio in due fasi, niente rinuncia improvvisa) e uno sul modulo di pubblicazione. Altri 8 test del backend usano il nodo locale con i contratti veri, e 21 test con un registro in memoria che applica le stesse regole coprono il flusso di accesso, l'emergenza e il registro per il paziente, comprese una voce alterata e una spostata sotto un altro paziente.
 
-\begin{table}[H]
-\centering\footnotesize
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{@{}p{.2\textwidth}p{.72\textwidth}@{}}
-\toprule
-Gruppo & Comportamenti verificati\\
-\midrule
-\texttt{ConsentRegistry} (13) & assenza di consenso di default; concessione con evento; il consenso per la cura non vale per la ricerca; la revoca per una finalità lascia valide le altre; finalità inesistente rifiutata; scadenza passata o oltre la durata massima rifiutata; indirizzo zero e auto-concessione rifiutati; scadenza nel tempo; revoca con evento; un estraneo non può revocare il consenso altrui; in pausa si revoca ma non si concede; solo il ruolo \texttt{PAUSER} mette in pausa.\\
-\texttt{AuditLog} (11) & solo il ruolo \texttt{RECORDER} registra, nemmeno l'amministratore; accesso negato registrato anche senza consenso; accesso concesso solo con consenso valido per la stessa finalità e non dopo la revoca; accesso d'emergenza solo per il personale abilitato e con motivazione, anche senza consenso; numerazione unica delle voci.\\
-Amministrazione (11) & per entrambi i contratti: niente secondo amministratore; passaggio di consegne in due fasi dopo due giorni; annullamento durante l'attesa; niente rinuncia improvvisa; un estraneo non avvia passaggi. L'amministratore senza ruolo di pausa non mette in pausa.\\
-Deploy (1) & il modulo di Ignition collega i contratti e assegna i ruoli previsti.\\
-\midrule
-Backend sulla catena (8) & dati della rete esposti al frontend; indirizzo senza contratto rifiutato; lettura del consenso e registrazione degli esiti; finalità diversa rifiutata dal contratto; accesso d'emergenza; il backend continua a scrivere dopo un rifiuto; scritture contemporanee con identificativi distinti; una chiave senza ruolo non scrive.\\
-\bottomrule
-\end{tabular}
-\caption{Test della parte on-chain.}
-\end{table}
-
-Altri 14 test del backend, con un registro in memoria che applica le stesse regole dei contratti, coprono il flusso di accesso: paziente che tenta di consultare cartelle, paziente inesistente, finalità sconosciute o ereditate, accesso negato senza consenso e registrato come tale, accesso concesso con referti decifrati, corrispondenza tra impronta on-chain e dettagli off-chain, revoca tra lettura e scrittura, blockchain non raggiungibile, accesso d'emergenza respinto, senza motivazione e riuscito. Altri 7 test verificano il registro per il paziente: senza sessione o da medico non si ottiene nulla; il paziente vede le proprie voci, dal più recente, con esito, finalità e motivazione degli accessi d'emergenza, e non quelle degli altri; una voce spostata nella cartella di un altro paziente o alterata viene segnalata senza rivelarne il contenuto.
-
-\subsection{Limiti noti}
+\subsection{Limiti}
 \begin{itemize}
-  \item Il consenso è associato a un \emph{indirizzo}, non a un'identità verificata. Il legame tra l'indirizzo e il medico abilitato è conservato dalla struttura nel database; le prove a conoscenza zero permetterebbero di dimostrarlo sulla catena senza rivelare l'identità del medico (sezione~\ref{sec:zkp}).
-  \item Il backend con ruolo \texttt{RECORDER\_ROLE} resta un punto di fiducia: non può alterare le voci già scritte né registrare un accesso concesso senza consenso, ma un backend compromesso potrebbe consegnare dati senza registrarne l'accesso. Una mitigazione è separare chi custodisce le chiavi dei referti da chi espone l'API, così che la decifratura avvenga solo dopo che l'evento è stato confermato sulla catena.
-  \item Su una rete pubblica il paziente dovrebbe possedere criptovaluta per pagare il gas di ogni concessione e revoca, un ostacolo serio per chi non conosce questi strumenti. Una soluzione nota sono le meta-transazioni\cite{eip2771}: il paziente firma soltanto il messaggio e un intermediario paga la transazione, senza poterne cambiare il contenuto.
-  \item I metadati sulla catena pubblica restano un rischio per la riservatezza, discusso nella sezione~\ref{sec:residui}.
-  \item I costi di gas sono misurati nella sezione~\ref{sec:val-gas}: costanti per ogni operazione, ma su una rete pubblica il costo complessivo dipende molto dal prezzo del gas.
+  \item Il consenso è intestato a un indirizzo; il legame con il medico abilitato lo conserva la struttura (sezione~\ref{sec:zkp} per un'alternativa).
+  \item Un backend compromesso non può falsificare l'audit, ma potrebbe consegnare dati senza registrarli; separare chi custodisce le chiavi dei referti da chi espone l'API ridurrebbe il rischio.
+  \item Su una rete pubblica il paziente dovrebbe pagare il gas di ogni consenso; le meta-transazioni\cite{eip2771} permetterebbero a un intermediario di pagarlo senza poter cambiare il contenuto.
+  \item I metadati sulla catena pubblica restano un rischio per la riservatezza (sezione~\ref{sec:residui}).
 \end{itemize}
