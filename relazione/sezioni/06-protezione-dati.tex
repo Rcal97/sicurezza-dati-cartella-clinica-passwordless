@@ -63,6 +63,29 @@ Ogni voce è cifrata con le stesse chiavi dell'archivio dei referti, e come dato
 
 \paragraph{Cercare senza rivelare.} Per mostrare a un paziente le sole voci che lo riguardano (sezione~\ref{sec:registro-paziente}), il backend deve poterle trovare senza decifrare l'intero registro. Scrivere il nome del paziente in chiaro accanto alla voce lo avrebbe reso visibile a chiunque legga il database. Ogni voce porta invece un'\emph{etichetta}: l'HMAC-SHA256 del nome utente, calcolato con una chiave derivata con HKDF da quelle dell'archivio. Chi ha accesso al database vede etichette che non può ricondurre a nessun nome, nemmeno provando tutti i nomi utente possibili, perché senza la chiave non può calcolarle; il backend, che ha le chiavi, ottiene sempre la stessa etichetta per lo stesso paziente e la usa come indice. L'etichetta serve solo a cercare: fa fede il paziente scritto nei dettagli cifrati, così una voce spostata sotto l'etichetta di un altro paziente viene riconosciuta e mostrata solo come alterata, senza rivelarne il contenuto. Resta visibile quante voci ha ciascuna etichetta e quando sono state scritte, un'informazione molto più povera del nome.
 
+\subsection{Cancellazione su richiesta}\label{sec:cancellazione}
+Il GDPR riconosce il diritto alla cancellazione dei propri dati (art.~17\cite{gdpr}), ma con eccezioni: tra le altre, quando la conservazione è imposta da un obbligo di legge, serve a fini di sanità pubblica o è necessaria per difendere un diritto. La documentazione clinica è soggetta a obblighi di conservazione molto lunghi, e il registro degli accessi è ciò che permette di rispondere di un abuso. Cancellare tutto non sarebbe quindi corretto. La procedura distingue tre gruppi di dati:
+\begin{itemize}
+  \item \textbf{identità digitale e profilo}, sempre cancellati: passkey, sessioni, inviti, richieste in sospeso e il profilo con ruolo e indirizzo sulla catena;
+  \item \textbf{referti}, conservati cifrati, salvo indicazione esplicita quando la conservazione non è più dovuta;
+  \item \textbf{registro degli accessi}, conservato cifrato, per l'accountability.
+\end{itemize}
+
+La cancellazione la esegue la struttura, dopo aver identificato chi la chiede, con lo script \texttt{npm run cancella-utente}, che per un'operazione irreversibile chiede di riscrivere lo username come conferma. Il punto centrale è la cancellazione del profilo, cioè del legame tra la persona e il suo indirizzo sulla blockchain. È l'approccio indicato dalle linee guida europee\cite{edpb-blockchain}: i dati scritti sulla catena non si possono cancellare, ma sono impronte e uno pseudonimo che, senza il legame conservato fuori dalla catena, non riconducono più a nessuno. Gli eventuali consensi del paziente restano sulla catena finché non li revoca dal proprio wallet, ma senza profilo il backend non associa più quell'indirizzo a nessun utente, e nessun accesso alla cartella è possibile.
+
+\paragraph{Uno username non si riassegna.} Se i referti di un utente cancellato sono conservati, assegnare lo stesso nome a un'altra persona le farebbe ereditare la documentazione di qualcun altro. La procedura lascia quindi un segno che impedisce di rilasciare nuovi inviti per quel nome. Il segno contiene solo l'impronta SHA-256 dello username: è una pseudonimizzazione e non un anonimato, perché un nome si può indovinare provando, ma evita che il nome resti leggibile nell'elenco degli utenti cancellati.
+
+\begin{lstlisting}[language=TypeScript,caption={Cancellazione di un utente (\texttt{models/mongoStore.ts}, estratto).},label={lst:cancellazione}]
+// Prima il segno di cancellazione: se la procedura si interrompe, lo username non è già riutilizzabile.
+await this.erased.updateOne({ _id: erasedId(username) }, { $setOnInsert: { erasedAt: new Date() } }, { upsert: true });
+const account = (await this.users.deleteOne({ _id: username })).deletedCount === 1;
+const sessions = (await this.sessions.deleteMany({ username })).deletedCount;
+const profile = (await this.profiles.deleteOne({ _id: username })).deletedCount === 1;
+const documents = options.documents ? (await this.documents.deleteMany({ patient: username })).deletedCount : 0;
+\end{lstlisting}
+
+Sette test verificano la procedura, uno dei quali su MongoDB: dopo la cancellazione la sessione è chiusa e la passkey non entra più, nessun medico può aprire la cartella, i referti sono conservati salvo richiesta, il registro degli accessi resta, lo username non può essere riassegnato e un medico cancellato non compare più tra quelli a cui dare il consenso.
+
 \subsection{Custodia delle chiavi}\label{sec:chiavi}
 Cifrare i dati sposta il problema sulle chiavi: chi le possiede legge tutto, e chi le perde perde tutto. La gestione segue le indicazioni generali del NIST sulla gestione delle chiavi\cite{sp800-57}, con due misure.
 
@@ -80,7 +103,7 @@ I test sulla cifratura e sulla custodia delle chiavi sono 34. I 16 sulla cifratu
 \subsection{Rischi residui}
 \begin{itemize}
   \item \textbf{Chiavi in memoria.} Mentre il backend è in esecuzione le chiavi dell'archivio stanno nella sua memoria: un attaccante con il pieno controllo del server in quel momento potrebbe leggerle. Le misure descritte proteggono il file e il backup, non la macchina accesa. La soluzione è un modulo hardware di sicurezza (HSM) o un servizio di gestione delle chiavi, che esegue la decifratura delle DEK senza che le chiavi lascino mai l'hardware.
-  \item \textbf{Una sola chiave per l'archivio.} Tutti i referti dipendono dalle stesse chiavi. Chiavi separate per paziente limiterebbero l'impatto di una compromissione e renderebbero la cancellazione ancora più semplice.
+  \item \textbf{Una sola chiave per l'archivio.} Tutti i referti dipendono dalle stesse chiavi. Chiavi separate per paziente limiterebbero l'impatto di una compromissione e permetterebbero di rendere illeggibili i referti di una persona cancellandone solo la chiave (\emph{crypto-shredding}), anche nelle copie di backup.
   \item \textbf{Spazio occupato.} I campi cifrati sono salvati come testo base64, che aumenta di un terzo la dimensione di ogni referto (sezione~\ref{sec:valutazione}); salvarli come dati binari eliminerebbe questo aumento.
   \item \textbf{Metadati in chiaro.} Nel database restano in chiaro il paziente e la data di ogni referto, che servono a ritrovarli.
 \end{itemize}

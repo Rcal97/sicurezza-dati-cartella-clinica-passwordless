@@ -16,6 +16,7 @@
     "backup-chiavi": "node --env-file=../.env --import tsx src/scripts/backup.ts",
     "ripristino-chiavi": "node --env-file=../.env --import tsx src/scripts/restore.ts",
     "revoca": "node --env-file=../.env --import tsx src/scripts/revoke.ts",
+    "cancella-utente": "node --env-file=../.env --import tsx src/scripts/erase.ts",
     "registro-accessi": "node --env-file=../.env --import tsx src/scripts/accessLog.ts",
     "wallet-prova": "node --env-file=../.env --import tsx src/scripts/walletDev.ts",
     "bench:crypto": "node --import tsx bench/crypto.ts",

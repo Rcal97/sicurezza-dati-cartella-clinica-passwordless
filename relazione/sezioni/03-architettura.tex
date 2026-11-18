@@ -11,7 +11,7 @@ Il sistema è una DApp composta da cinque parti, ciascuna con un compito preciso
 Componente & Tecnologia & Compito & Stato\\
 \midrule
 Frontend & React, Vite, WebAuthn del browser & Accesso con passkey, gestione delle proprie passkey e delle sessioni, consultazione delle cartelle e firma dei referti, concessione e revoca dei consensi con il wallet del paziente, registro degli accessi verificabile sulla catena & Completo\\
-Backend & Node.js 24, TypeScript, Express 5, ethers 6 & Autenticazione FIDO2, sessioni, controllo degli accessi, cifratura e firma dei referti, scrittura dell'audit & Parziale\\
+Backend & Node.js 24, TypeScript, Express 5, ethers 6 & Autenticazione FIDO2, sessioni, controllo degli accessi, cifratura e firma dei referti, scrittura dell'audit, registro per il paziente, cancellazione su richiesta & Completo\\
 Database & MongoDB 8.0 & Utenti, credenziali FIDO2, sessioni, profili, referti cifrati, registro cifrato degli accessi & Completo\\
 Custodia delle chiavi & AES-256-GCM, ML-KEM-768 + X25519, Argon2id, Shamir & Chiavi dell'archivio cifrate con passphrase, backup a soglia & Completo\\
 Smart contract & Solidity 0.8, OpenZeppelin, Hardhat & Registro dei consensi per finalità, registro di audit con accessi d'emergenza, amministrazione con passaggio di consegne & Completo\\

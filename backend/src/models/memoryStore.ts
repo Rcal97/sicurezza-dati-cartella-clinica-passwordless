@@ -1,5 +1,14 @@
 import type { WebAuthnCredential } from "@simplewebauthn/server";
-import type { AccessLogEntry, PendingRegistration, Profile, SignatureRequest, Store, StoredDocument, User } from "./store.js";
+import type {
+  AccessLogEntry,
+  ErasureResult,
+  PendingRegistration,
+  Profile,
+  SignatureRequest,
+  Store,
+  StoredDocument,
+  User,
+} from "./store.js";
 
 // Implementazione in memoria: usata dai test, non conserva nulla tra un avvio e l'altro.
 export class MemoryStore implements Store {
@@ -10,6 +19,7 @@ export class MemoryStore implements Store {
   private readonly sessions = new Map<string, { username: string; expiresAt: number; absoluteExpiresAt: number }>();
   private readonly invitations = new Map<string, { username: string; expiresAt: number }>();
   private readonly profiles = new Map<string, Profile>();
+  private readonly erased = new Set<string>();
   // Pubblico per permettere ai test di controllarne il contenuto.
   readonly accessLog: AccessLogEntry[] = [];
   readonly documents: StoredDocument[] = [];
@@ -68,8 +78,10 @@ export class MemoryStore implements Store {
     return expiresAt !== undefined && expiresAt >= Date.now();
   }
 
-  async createInvitation(codeHash: string, username: string, ttlMs: number): Promise<void> {
+  async createInvitation(codeHash: string, username: string, ttlMs: number) {
+    if (this.erased.has(username)) return "erased" as const;
     this.invitations.set(codeHash, { username, expiresAt: Date.now() + ttlMs });
+    return "ok" as const;
   }
 
   async hasInvitation(codeHash: string, username: string): Promise<boolean> {
@@ -161,6 +173,29 @@ export class MemoryStore implements Store {
 
   async listDocuments(patient: string): Promise<StoredDocument[]> {
     return this.documents.filter((d) => d.patient === patient);
+  }
+
+  async eraseUser(username: string, options: { documents: boolean }): Promise<ErasureResult> {
+    this.erased.add(username);
+    const account = this.users.delete(username);
+    let sessions = 0;
+    for (const [hash, s] of this.sessions) if (s.username === username && this.sessions.delete(hash)) sessions++;
+    let invitations = 0;
+    for (const [hash, i] of this.invitations) if (i.username === username && this.invitations.delete(hash)) invitations++;
+    this.registrations.delete(username);
+    for (const [challenge, r] of this.signatures) if (r.username === username) this.signatures.delete(challenge);
+    const profile = this.profiles.delete(username);
+    let documents = 0;
+    if (options.documents) {
+      for (let i = this.documents.length - 1; i >= 0; i--) {
+        if (this.documents[i].patient === username) {
+          this.documents.splice(i, 1);
+          documents++;
+        }
+      }
+    }
+    const documentsKept = this.documents.filter((d) => d.patient === username).length;
+    return { account, profile, sessions, invitations, documents, documentsKept };
   }
 
   async close(): Promise<void> {}

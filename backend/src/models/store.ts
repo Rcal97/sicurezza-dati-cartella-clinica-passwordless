@@ -100,7 +100,8 @@ export interface Store {
 
   // Inviti alla registrazione, rilasciati dopo l'identificazione dell'utente (identity proofing).
   // Sono legati a uno username, monouso e indicizzati dall'hash del codice.
-  createInvitation(codeHash: string, username: string, ttlMs: number): Promise<void>;
+  // "erased" se lo username appartiene a un utente cancellato: non si riassegna a un'altra persona.
+  createInvitation(codeHash: string, username: string, ttlMs: number): Promise<"ok" | "erased">;
   hasInvitation(codeHash: string, username: string): Promise<boolean>;
   // Consuma l'invito in modo atomico: restituisce true una sola volta.
   takeInvitation(codeHash: string, username: string): Promise<boolean>;
@@ -135,5 +136,19 @@ export interface Store {
   addDocument(doc: StoredDocument): Promise<void>;
   listDocuments(patient: string): Promise<StoredDocument[]>;
 
+  // Cancellazione su richiesta (art. 17 GDPR): identità digitale e legame con l'indirizzo
+  // sulla catena; i referti solo se richiesto, perché la documentazione clinica ha obblighi
+  // di conservazione. Il registro degli accessi resta, cifrato, per l'accountability.
+  eraseUser(username: string, options: { documents: boolean }): Promise<ErasureResult>;
+
   close(): Promise<void>;
+}
+
+export interface ErasureResult {
+  account: boolean; // passkey e identificativo WebAuthn
+  profile: boolean; // ruolo e indirizzo sulla catena
+  sessions: number;
+  invitations: number;
+  documents: number; // referti cancellati (0 se conservati)
+  documentsKept: number; // referti conservati
 }

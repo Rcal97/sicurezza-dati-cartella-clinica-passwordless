@@ -8,7 +8,8 @@ La revisione ha riguardato l'intero repository: backend, frontend, contratti, co
   \item rilettura del codice, controllo per controllo, alla ricerca di casi non gestiti;
   \item \textbf{riproduzione} di ogni sospetto con una prova eseguita contro il codice reale, prima di considerarlo un problema: un sospetto non riprodotto non è stato classificato come vulnerabilità;
   \item analisi delle dipendenze con \texttt{npm audit} per le librerie JavaScript e \texttt{pip-audit} per quelle Python del notebook, e verifica che ogni componente sia ancora supportato dal produttore;
-  \item ricerca di segreti nella storia completa del repository, con lo strumento \texttt{gitleaks} e con ricerche mirate di chiavi private, password e file di configurazione.
+  \item ricerca di segreti nella storia completa del repository, con lo strumento \texttt{gitleaks} e con ricerche mirate di chiavi private, password e file di configurazione;
+  \item analisi statica del codice TypeScript con CodeQL.
 \end{itemize}
 Per ogni problema confermato è stato scritto prima un test che lo riproduce e fallisce, poi la correzione, poi verificato che il test passi e che nessun altro test si rompa. Il nuovo test resta nella suite, così che il problema non possa ripresentarsi.
 
@@ -55,8 +56,10 @@ Alcuni punti meritano un commento.
 
 \paragraph{Dipendenze e segreti.} Le dipendenze del backend, del frontend e del notebook, cioè il codice che va effettivamente in esecuzione, non presentano vulnerabilità note. Negli strumenti di sviluppo della cartella \texttt{blockchain}, le librerie \texttt{glob} e \texttt{minimatch} usate da mocha sono fissate a versioni corrette con gli \emph{override} di npm, limitati a mocha perché altri strumenti richiedono le versioni precedenti. Resta una sola segnalazione, la libreria \texttt{zod} con cui Hardhat controlla il proprio file di configurazione: la versione corretta non è compatibile con Hardhat, che con essa smette di segnalare gli errori di configurazione, come verificato in prova. Il difetto riguarda un consumo eccessivo di memoria su input forniti dallo sviluppatore stesso e non tocca il codice in esecuzione; va ricontrollato a ogni aggiornamento di Hardhat. Oltre alle vulnerabilità note, per ogni componente si è verificato che sia ancora supportato dal produttore: una versione senza vulnerabilità note non è necessariamente sicura, se nessuno cerca più le sue vulnerabilità. La ricerca di segreti in tutti i commit ha trovato soltanto le chiavi pubbliche di prova di Hardhat, valide solo sulla rete locale.
 
+\paragraph{Analisi statica.} CodeQL ha segnalato cinque rotte senza limite di frequenza: le quattro della registrazione e del login e le due della firma dei referti, tutte con operazioni costose come la verifica di una firma o una scrittura sulla catena. Le segnalazioni sono state verificate una per una e archiviate come falsi positivi, con la motivazione: il limite c'è, applicato a tutte le rotte del gruppo da un middleware registrato prima delle rotte, e un test ne dimostra l'effetto (risposta 429 oltre la soglia). CodeQL riconosce però solo le librerie di rate limiting più diffuse e non il middleware del progetto. È un limite tipico dell'analisi statica, che segnala schemi senza conoscere l'intenzione: per questo ogni segnalazione va verificata, non accettata o ignorata in blocco.
+
 \subsection{Riepilogo dei test}
-La tabella~\ref{tab:test-totali} riporta tutti i test automatici del progetto, compresi quelli della firma dei referti, della pagina dei consensi e del registro per il paziente. Tutti sono superati.
+La tabella~\ref{tab:test-totali} riporta tutti i test automatici del progetto, compresi quelli della firma dei referti, della pagina dei consensi, del registro per il paziente e della cancellazione su richiesta. Tutti sono superati.
 
 \begin{table}[H]
 \centering\footnotesize
@@ -65,12 +68,12 @@ La tabella~\ref{tab:test-totali} riporta tutti i test automatici del progetto, c
 \toprule
 Gruppo & Comando & Test\\
 \midrule
-Backend, unitari & \texttt{npm test} (cartella \texttt{backend}) & 121\\
-Backend su MongoDB reale & \texttt{npm run test:mongo} & 19\\
+Backend, unitari & \texttt{npm test} (cartella \texttt{backend}) & 127\\
+Backend su MongoDB reale & \texttt{npm run test:mongo} & 20\\
 Backend sulla blockchain locale & \texttt{npm run test:chain} & 8\\
 Smart contract & \texttt{npm test} (cartella \texttt{blockchain}) & 36\\
 \midrule
-Totale & & 184\\
+Totale & & 191\\
 \bottomrule
 \end{tabular}
 \caption{Test automatici del progetto.}\label{tab:test-totali}
@@ -88,6 +91,6 @@ I rischi che seguono restano anche dopo le correzioni. Alcuni dipendono da scelt
   \item \textbf{Passkey sincronizzate e attestazione.} Le passkey sincronizzate nel cloud spesso non usano il contatore, e senza attestazione il server non sa quale autenticatore abbia creato la passkey (sezione~\ref{sec:fido2}).
   \item \textbf{Operazioni sensibili senza nuova verifica.} La revoca di una passkey richiede solo una sessione valida; una nuova verifica con la passkey (\emph{step-up}) renderebbe innocua una postazione lasciata aperta.
   \item \textbf{Database e trasporto.} In produzione servirebbero TLS tra backend e database, la cifratura dei volumi e HTTPS verso i client, con il limite di frequenza configurato per l'eventuale reverse proxy.
-  \item \textbf{Catena di fornitura.} Versioni e immagine del database sono fissate, ma le vulnerabilità vengono scoperte di continuo: le dipendenze vanno ricontrollate a ogni aggiornamento, per esempio attivando gli avvisi automatici di GitHub (Dependabot), e va verificato periodicamente che ogni componente sia ancora supportato. Restano gli strumenti di sviluppo non più mantenuti usati da Hardhat per generare i tipi dei contratti, che non vanno mai in esecuzione nel servizio.
+  \item \textbf{Catena di fornitura.} Versioni e immagine del database sono fissate, ma le vulnerabilità vengono scoperte di continuo: il repository ha quindi attivi gli avvisi automatici di GitHub sulle dipendenze (Dependabot), la ricerca dei segreti con blocco del \emph{push} che ne contiene uno e l'analisi statica a ogni modifica; va comunque verificato periodicamente che ogni componente sia ancora supportato. Restano gli strumenti di sviluppo non più mantenuti usati da Hardhat per generare i tipi dei contratti, che non vanno mai in esecuzione nel servizio.
   \item \textbf{Log del server.} I log contengono nomi utente, utili al monitoraggio della sicurezza ma pur sempre dati personali: vanno conservati per un tempo limitato e protetti come gli altri dati.
 \end{itemize}

@@ -15,8 +15,12 @@ if (!username || !USERNAME.test(username)) {
 
 const code = randomBytes(16).toString("base64url"); // 128 bit casuali
 const store = await MongoStore.connect(mongoUrl());
-await store.createInvitation(hashToken(code), username, config.invitationTtlMs);
+const result = await store.createInvitation(hashToken(code), username, config.invitationTtlMs);
 await store.close();
+if (result === "erased") {
+  console.error(`${username} appartiene a un utente cancellato e non può essere riassegnato: scegli un altro nome.`);
+  process.exit(1);
+}
 
 const scadenza = new Date(Date.now() + config.invitationTtlMs).toLocaleString("it-IT");
 console.log(`Invito per ${username}: ${code}`);

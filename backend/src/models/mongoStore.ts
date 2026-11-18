@@ -1,6 +1,17 @@
+import { createHash } from "node:crypto";
 import { Binary, MongoClient, MongoServerError, type Collection, type Db } from "mongodb";
 import type { WebAuthnCredential } from "@simplewebauthn/server";
-import type { AccessLogEntry, PendingRegistration, Profile, Role, SignatureRequest, Store, StoredDocument, User } from "./store.js";
+import type {
+  AccessLogEntry,
+  ErasureResult,
+  PendingRegistration,
+  Profile,
+  Role,
+  SignatureRequest,
+  Store,
+  StoredDocument,
+  User,
+} from "./store.js";
 
 interface CredentialDoc {
   id: string;
@@ -36,6 +47,13 @@ interface DocumentDoc extends Omit<StoredDocument, "id"> {
   _id: string; // identificativo del referto
 }
 
+// Utenti cancellati: solo l'impronta SHA-256 dello username, per non riassegnarlo a un'altra
+// persona (che erediterebbe i referti conservati). È una pseudonimizzazione, non un anonimato.
+interface ErasedDoc {
+  _id: string;
+  erasedAt: Date;
+}
+
 interface ProfileDoc {
   _id: string; // username
   role: Role;
@@ -43,6 +61,7 @@ interface ProfileDoc {
 }
 
 const DUPLICATE_KEY = 11000;
+const erasedId = (username: string) => createHash("sha256").update(username).digest("hex");
 
 export class MongoStore implements Store {
   private constructor(
@@ -54,6 +73,7 @@ export class MongoStore implements Store {
     private readonly profiles: Collection<ProfileDoc>,
     private readonly accessLog: Collection<AccessLogEntry>,
     private readonly documents: Collection<DocumentDoc>,
+    private readonly erased: Collection<ErasedDoc>,
   ) {}
 
   static async connect(url: string): Promise<MongoStore> {
@@ -69,6 +89,7 @@ export class MongoStore implements Store {
       db.collection<ProfileDoc>("profiles"),
       db.collection<AccessLogEntry>("access_log"),
       db.collection<DocumentDoc>("documents"),
+      db.collection<ErasedDoc>("erased_users"),
     );
     await store.createIndexes();
     return store;
@@ -173,8 +194,10 @@ export class MongoStore implements Store {
     return doc !== null && doc.expiresAt.getTime() >= Date.now();
   }
 
-  async createInvitation(codeHash: string, username: string, ttlMs: number): Promise<void> {
+  async createInvitation(codeHash: string, username: string, ttlMs: number) {
+    if (await this.erased.findOne({ _id: erasedId(username) })) return "erased" as const;
     await this.invitations.insertOne({ _id: codeHash, username, expiresAt: new Date(Date.now() + ttlMs) });
+    return "ok" as const;
   }
 
   async hasInvitation(codeHash: string, username: string): Promise<boolean> {
@@ -282,6 +305,19 @@ export class MongoStore implements Store {
   async listDocuments(patient: string): Promise<StoredDocument[]> {
     const docs = await this.documents.find({ patient }).sort({ createdAt: 1 }).toArray();
     return docs.map(({ _id, ...rest }) => ({ id: _id, ...rest }));
+  }
+
+  async eraseUser(username: string, options: { documents: boolean }): Promise<ErasureResult> {
+    // Prima il segno di cancellazione: se la procedura si interrompe, lo username non è già riutilizzabile.
+    await this.erased.updateOne({ _id: erasedId(username) }, { $setOnInsert: { erasedAt: new Date() } }, { upsert: true });
+    const account = (await this.users.deleteOne({ _id: username })).deletedCount === 1;
+    const sessions = (await this.sessions.deleteMany({ username })).deletedCount;
+    const invitations = (await this.invitations.deleteMany({ username })).deletedCount;
+    await this.challenges.deleteMany({ $or: [{ _id: `registrazione:${username}` }, { "signature.username": username }] });
+    const profile = (await this.profiles.deleteOne({ _id: username })).deletedCount === 1;
+    const documents = options.documents ? (await this.documents.deleteMany({ patient: username })).deletedCount : 0;
+    const documentsKept = await this.documents.countDocuments({ patient: username });
+    return { account, profile, sessions, invitations, documents, documentsKept };
   }
 
   async close(): Promise<void> {

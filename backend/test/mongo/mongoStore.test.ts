@@ -23,6 +23,8 @@ const name = (s: string) => `it.${run}.${s}`;
 let store: MongoStore;
 let admin: MongoClient;
 const createdLogs: string[] = [];
+const erasedNames: string[] = [];
+const erasedId = (username: string) => createHash("sha256").update(username).digest("hex");
 
 before(async () => {
   store = await MongoStore.connect(mongoUrl());
@@ -40,6 +42,7 @@ after(async () => {
   await db.collection("profiles").deleteMany({ _id: prefix } as never);
   await db.collection("access_log").deleteMany({ recordHash: { $in: createdLogs } });
   await db.collection("documents").deleteMany({ patient: prefix });
+  await db.collection("erased_users").deleteMany({ _id: { $in: erasedNames.map(erasedId) } } as never);
   await admin.close();
   await store.close();
 });
@@ -199,6 +202,33 @@ describe("MongoStore (MongoDB reale)", () => {
     assert.ok(!JSON.stringify(raw).includes(name("paziente")));
     const saved = (await store.listAccessLog()).find((e) => e.recordHash === entry.recordHash)!;
     assert.equal(openAccessLog(vault, saved).kind, "emergency");
+  });
+
+  it("la cancellazione su richiesta toglie identità e profilo, conserva referti e registro", async () => {
+    const username = name("oblio");
+    erasedNames.push(username);
+    const vault = Vault.generate();
+    await store.addCredential(username, "uid", {
+      id: `cred-${run}-oblio`,
+      publicKey: new Uint8Array([1, 2, 3]),
+      counter: 0,
+      transports: ["internal"],
+    });
+    await store.createSession(`oblio-${run}`, username, 60_000, 60_000);
+    await store.setProfile(username, { role: "patient", address: Wallet.createRandom().address });
+    await store.addDocument(sealDocument(vault, username, { title: "Esame", body: "Valori nella norma" }));
+
+    const r = await store.eraseUser(username, { documents: false });
+    assert.deepEqual(r, { account: true, profile: true, sessions: 1, invitations: 0, documents: 0, documentsKept: 1 });
+    assert.equal(await store.getUser(username), null);
+    assert.equal(await store.getProfile(username), null);
+    assert.equal(await store.touchSession(`oblio-${run}`, 60_000), null);
+    // Il segno di cancellazione resta anche per un'altra connessione, e non contiene il nome in chiaro.
+    const altra = await MongoStore.connect(mongoUrl());
+    assert.equal(await altra.createInvitation(`inv-${run}-oblio`, username, 60_000), "erased");
+    await altra.close();
+    const raw = await admin.db().collection("erased_users").find({}).toArray();
+    assert.ok(!JSON.stringify(raw).includes(username));
   });
 
   it("le voci di un paziente si trovano con la sua etichetta, senza il nome in chiaro", async () => {
