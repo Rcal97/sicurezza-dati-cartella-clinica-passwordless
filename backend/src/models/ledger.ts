@@ -1,23 +1,19 @@
-// Il registro on-chain visto dal backend: lettura dei consensi e scrittura dell'audit.
-// I valori numerici corrispondono agli enum dei contratti (Purpose e Outcome).
+// Il registro on-chain visto dal backend: consensi e audit, senza dati personali.
+// Sulla catena vanno solo ancore opache (HMAC calcolati con la chiave della struttura,
+// vedi Vault.anchor), scadenze e impronte di dati conservati off-chain e cifrati.
 
-export const Purpose = { Care: 0, Research: 1, Administration: 2 } as const;
-export type Purpose = (typeof Purpose)[keyof typeof Purpose];
-
+// Valori dell'enum Outcome del contratto AuditLog.
 export const Outcome = { Denied: 0, Granted: 1 } as const;
 export type Outcome = (typeof Outcome)[keyof typeof Outcome];
 
 export interface AccessEntry {
-  patient: string;
-  accessor: string;
-  purpose: Purpose;
+  consentId: string; // ancora del consenso richiesto (paziente, medico, finalità)
   outcome: Outcome;
   recordHash: string; // 32 byte in esadecimale: hash dei dettagli conservati off-chain
 }
 
 export interface EmergencyEntry {
-  patient: string;
-  accessor: string;
+  staffId: string; // ancora del medico d'emergenza
   reasonHash: string; // hash della motivazione, il cui testo resta off-chain
   recordHash: string;
 }
@@ -29,8 +25,8 @@ export class LedgerRevert extends Error {
   }
 }
 
-// Informazioni pubbliche sulla rete, che il frontend usa per far firmare al paziente
-// le transazioni di consenso con il suo wallet.
+// Informazioni pubbliche sulla rete: il frontend le usa come dominio della firma EIP-712
+// del consenso e per verificare le voci d'audit sulla catena.
 export interface ChainInfo {
   chainId: number;
   consentRegistry: string;
@@ -39,7 +35,11 @@ export interface ChainInfo {
 
 export interface Ledger {
   readonly chain: ChainInfo;
-  isConsentValid(patient: string, grantee: string, purpose: Purpose): Promise<boolean>;
+  isConsentValid(consentId: string): Promise<boolean>;
+  // Concessione e revoca: le registra il backend (ruolo REGISTRAR) dopo aver verificato la
+  // firma del paziente. expiresAt in secondi; receiptHash è l'impronta della ricevuta firmata.
+  grantConsent(consentId: string, expiresAt: number, receiptHash: string): Promise<void>;
+  revokeConsent(consentId: string, receiptHash: string): Promise<void>;
   // Restituiscono l'identificativo della voce d'audit, dopo che la transazione è in un blocco.
   recordAccess(entry: AccessEntry): Promise<bigint>;
   recordEmergencyAccess(entry: EmergencyEntry): Promise<bigint>;

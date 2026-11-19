@@ -3,8 +3,8 @@ import { getAddress } from "ethers";
 import type { Ledger } from "../models/ledger.js";
 import type { Store } from "../models/store.js";
 
-// Informazioni che servono al frontend, tutte non riservate: il proprio profilo,
-// l'elenco dei medici e i dati della rete su cui firmare i consensi.
+// Informazioni che servono al frontend, tutte non riservate: il proprio profilo (senza il
+// segreto delle ancore), l'elenco dei medici e i dati della rete su cui firmare i consensi.
 export function directoryController(store: Store, ledger: Ledger) {
   return {
     async profile(_req: Request, res: Response): Promise<void> {
@@ -14,13 +14,12 @@ export function directoryController(store: Store, ledger: Ledger) {
         username,
         role: profile?.role ?? null,
         // Indirizzo nella forma con il controllo delle maiuscole (EIP-55), come lo mostrano i wallet.
-        address: profile ? getAddress(profile.address) : null,
+        address: profile?.address ? getAddress(profile.address) : null,
       });
     },
 
     async doctors(_req: Request, res: Response): Promise<void> {
-      const doctors = await store.listDoctors();
-      res.json(doctors.map((d) => ({ username: d.username, address: getAddress(d.address) })));
+      res.json(await store.listDoctors());
     },
 
     chain(_req: Request, res: Response): void {

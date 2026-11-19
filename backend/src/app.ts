@@ -3,6 +3,8 @@ import type { Vault } from "./crypto/vault.js";
 import type { Ledger } from "./models/ledger.js";
 import type { Store } from "./models/store.js";
 import { errorHandler, securityHeaders } from "./middleware/security.js";
+import { NOTICE_HASH, NOTICE_TEXT, NOTICE_VERSION } from "./privacy.js";
+import { consentsRoutes } from "./routes/consents.js";
 import { directoryRoutes } from "./routes/directory.js";
 import { recordsRoutes } from "./routes/records.js";
 import { sessionRoutes } from "./routes/session.js";
@@ -32,9 +34,15 @@ export function createApp(store: Store, ledger: Ledger, vault: Vault, options: A
     res.json({ status: "ok" });
   });
 
+  // Informativa privacy e cookie: pubblica, si legge anche prima di registrarsi.
+  app.get("/privacy", (_req, res) => {
+    res.json({ version: NOTICE_VERSION, hash: NOTICE_HASH, text: NOTICE_TEXT });
+  });
+
   app.use("/webauthn", webauthnRoutes(store, limits));
   app.use("/session", sessionRoutes(store));
   app.use("/records", recordsRoutes(store, ledger, vault, limits));
+  app.use("/consents", consentsRoutes(store, ledger, vault, limits));
   app.use("/directory", directoryRoutes(store, ledger));
   app.use(errorHandler);
   return app;

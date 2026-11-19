@@ -5,11 +5,12 @@ import { MongoStore } from "../models/mongoStore.js";
 
 // Cancellazione di un utente su sua richiesta (art. 17 GDPR), eseguita dalla struttura dopo
 // averlo identificato. Cancella l'identità digitale (passkey, sessioni, inviti) e il profilo,
-// cioè il legame tra la persona e il suo indirizzo sulla blockchain: sulla catena restano solo
-// impronte e uno pseudonimo che non riconducono più a nessuno.
+// compreso il segreto da cui derivano le ancore dei suoi consensi: le ancore e le impronte
+// rimaste sulla catena non si possono più ricollegare a lui, nemmeno con la chiave della struttura.
 // I referti restano, cifrati, perché la documentazione clinica ha obblighi di conservazione:
 // si cancellano solo con --referti, quando la conservazione non è più dovuta.
-// Il registro cifrato degli accessi resta, per poter rispondere di chi ha fatto cosa.
+// Il registro cifrato degli accessi e le ricevute cifrate dei consensi restano, per poter
+// rispondere di chi ha fatto cosa e dimostrare su quale base (art. 5.2 GDPR).
 // Uso: npm run cancella-utente -- <username> [--referti]
 const args = process.argv.slice(2);
 const username = args.find((a) => !a.startsWith("--"));
@@ -37,8 +38,8 @@ try {
     `${r.sessions} sessioni, ${r.invitations} inviti, ${r.documents} referti.`);
   if (r.documentsKept > 0) console.log(`Referti conservati: ${r.documentsKept}.`);
   console.log("Lo username non potrà essere assegnato a un'altra persona.");
-  console.log("I consensi sulla catena restano finché il paziente non li revoca dal proprio wallet, ma senza");
-  console.log("profilo il backend non associa più quell'indirizzo a nessuno e nessun accesso è possibile.");
+  console.log("Senza profilo nessun accesso alla cartella è possibile; le ancore sulla catena non sono più");
+  console.log("ricollegabili alla persona perché il segreto da cui derivavano è stato cancellato.");
 } finally {
   await store.close();
 }

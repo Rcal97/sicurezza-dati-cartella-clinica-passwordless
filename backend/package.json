@@ -18,7 +18,7 @@
     "revoca": "node --env-file=../.env --import tsx src/scripts/revoke.ts",
     "cancella-utente": "node --env-file=../.env --import tsx src/scripts/erase.ts",
     "registro-accessi": "node --env-file=../.env --import tsx src/scripts/accessLog.ts",
-    "wallet-prova": "node --env-file=../.env --import tsx src/scripts/walletDev.ts",
+    "emergenza": "node --env-file=../.env --import tsx src/scripts/emergency.ts",
     "bench:crypto": "node --import tsx bench/crypto.ts",
     "bench:attacchi": "node --import tsx bench/attacks.ts"
   },

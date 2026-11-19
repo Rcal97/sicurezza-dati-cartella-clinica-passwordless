@@ -7,21 +7,33 @@ import {
   type ContractTransactionResponse,
   type TransactionReceipt,
 } from "ethers";
-import { LedgerRevert, type AccessEntry, type ChainInfo, type EmergencyEntry, type Ledger, type Purpose } from "./ledger.js";
+import { LedgerRevert, type AccessEntry, type ChainInfo, type EmergencyEntry, type Ledger } from "./ledger.js";
 
 // Solo le funzioni, gli eventi e gli errori che il backend usa (gli enum viaggiano come uint8).
 const CONSENT_ABI = [
-  "function isConsentValid(address patient, address grantee, uint8 purpose) view returns (bool)",
+  "function isConsentValid(bytes32 consentId) view returns (bool)",
+  "function grantConsent(bytes32 consentId, uint64 expiresAt, bytes32 receiptHash)",
+  "function revokeConsent(bytes32 consentId, bytes32 receiptHash)",
+  "event ConsentGranted(bytes32 indexed consentId, uint64 expiresAt, bytes32 receiptHash)",
+  "event ConsentRevoked(bytes32 indexed consentId, bytes32 receiptHash)",
+  "error InvalidConsentId()",
+  "error InvalidExpiry()",
+  "error MissingReceipt()",
+  "error EnforcedPause()",
+  "error AccessControlUnauthorizedAccount(address account, bytes32 neededRole)",
 ];
 
 const AUDIT_ABI = [
-  "function recordAccess(address patient, address accessor, uint8 purpose, uint8 outcome, bytes32 recordHash) returns (uint256)",
-  "function recordEmergencyAccess(address patient, address accessor, bytes32 reasonHash, bytes32 recordHash) returns (uint256)",
-  "event AccessRecorded(uint256 indexed entryId, address indexed patient, address indexed accessor, uint8 purpose, uint8 outcome, bytes32 recordHash)",
-  "event EmergencyAccess(uint256 indexed entryId, address indexed patient, address indexed accessor, bytes32 reasonHash, bytes32 recordHash)",
+  "function recordAccess(bytes32 consentId, uint8 outcome, bytes32 recordHash) returns (uint256)",
+  "function recordEmergencyAccess(bytes32 staffId, bytes32 reasonHash, bytes32 recordHash) returns (uint256)",
+  "function setEmergencyStaff(bytes32 staffId, bool enabled)",
+  "function isEmergencyStaff(bytes32 staffId) view returns (bool)",
+  "event AccessRecorded(uint256 indexed entryId, bytes32 indexed consentId, uint8 outcome, bytes32 recordHash)",
+  "event EmergencyAccess(uint256 indexed entryId, bytes32 indexed staffId, bytes32 reasonHash, bytes32 recordHash)",
   "error ConsentNotValid()",
-  "error NotEmergencyStaff(address accessor)",
+  "error NotEmergencyStaff(bytes32 staffId)",
   "error MissingReason()",
+  "error InvalidStaffId()",
   "error AccessControlUnauthorizedAccount(address account, bytes32 neededRole)",
 ];
 
@@ -80,7 +92,7 @@ export class EthersLedger implements Ledger {
     }
     return new EthersLedger(
       provider,
-      new Contract(cfg.consentRegistry, CONSENT_ABI, provider),
+      new Contract(cfg.consentRegistry, CONSENT_ABI, signer),
       new Contract(cfg.auditLog, AUDIT_ABI, signer),
       {
         chainId: Number(chainId),
@@ -90,42 +102,46 @@ export class EthersLedger implements Ledger {
     );
   }
 
-  async isConsentValid(patient: string, grantee: string, purpose: Purpose): Promise<boolean> {
-    return await this.consent.getFunction("isConsentValid")(patient, grantee, purpose);
+  async isConsentValid(consentId: string): Promise<boolean> {
+    return await this.consent.getFunction("isConsentValid")(consentId);
+  }
+
+  async grantConsent(consentId: string, expiresAt: number, receiptHash: string): Promise<void> {
+    await this.send(this.consent, "grantConsent", [consentId, expiresAt, receiptHash]);
+  }
+
+  async revokeConsent(consentId: string, receiptHash: string): Promise<void> {
+    await this.send(this.consent, "revokeConsent", [consentId, receiptHash]);
   }
 
   async recordAccess(e: AccessEntry): Promise<bigint> {
-    const args = [e.patient, e.accessor, e.purpose, e.outcome, e.recordHash];
-    return this.send("recordAccess", args, "AccessRecorded");
+    const receipt = await this.send(this.audit, "recordAccess", [e.consentId, e.outcome, e.recordHash]);
+    return this.entryId(receipt, "AccessRecorded");
   }
 
   async recordEmergencyAccess(e: EmergencyEntry): Promise<bigint> {
-    const args = [e.patient, e.accessor, e.reasonHash, e.recordHash];
-    return this.send("recordEmergencyAccess", args, "EmergencyAccess");
+    const receipt = await this.send(this.audit, "recordEmergencyAccess", [e.staffId, e.reasonHash, e.recordHash]);
+    return this.entryId(receipt, "EmergencyAccess");
   }
 
   close(): void {
     this.provider.destroy();
   }
 
-  // Invia la transazione, attende che entri in un blocco e restituisce l'id della voce.
+  // Invia la transazione e attende che entri in un blocco.
   // Gli invii sono messi in fila: ognuno legge il nonce dal nodo solo dopo che il precedente
   // è stato trasmesso, quindi due richieste contemporanee non ricevono lo stesso numero e una
   // transazione rifiutata non lascia buchi nella numerazione.
-  private async send(fn: string, args: unknown[], eventName: string): Promise<bigint> {
+  private async send(contract: Contract, fn: string, args: unknown[]): Promise<TransactionReceipt> {
     const sending = this.queue.then(
-      () => this.audit.getFunction(fn)(...args) as Promise<ContractTransactionResponse>,
+      () => contract.getFunction(fn)(...args) as Promise<ContractTransactionResponse>,
     );
     this.queue = sending.catch(() => undefined);
     try {
       const tx = await sending;
-      return this.entryId((await tx.wait())!, eventName);
+      return (await tx.wait())!;
     } catch (err) {
-      // Se il contratto rifiuta, traduce il codice dell'errore nel suo nome.
-      const data = (err as { data?: string }).data;
-      const decoded = data ? this.audit.interface.parseError(data) : null;
-      if (decoded) throw new LedgerRevert(decoded.name);
-      throw err;
+      throw decodeRevert(contract, err);
     }
   }
 
@@ -136,5 +152,35 @@ export class EthersLedger implements Ledger {
       if (parsed?.name === eventName) return parsed.args.getValue("entryId");
     }
     throw new Error(`Evento ${eventName} non trovato nella ricevuta`);
+  }
+}
+
+// Se il contratto rifiuta, traduce il codice dell'errore nel suo nome.
+function decodeRevert(contract: Contract, err: unknown): unknown {
+  const data = (err as { data?: string }).data;
+  const decoded = data ? contract.interface.parseError(data) : null;
+  return decoded ? new LedgerRevert(decoded.name) : err;
+}
+
+// Operazione dell'amministratore (non del backend): abilita o disabilita un medico agli
+// accessi d'emergenza, identificato sulla catena solo dalla sua ancora.
+export async function setEmergencyStaff(
+  cfg: Omit<LedgerConfig, "privateKey">,
+  adminKey: string,
+  staffId: string,
+  enabled: boolean,
+): Promise<void> {
+  const provider = new JsonRpcProvider(cfg.rpcUrl);
+  try {
+    const admin = new Wallet(adminKey, provider);
+    assertSafeKey(admin.address, (await provider.getNetwork()).chainId);
+    const audit = new Contract(cfg.auditLog, AUDIT_ABI, admin);
+    try {
+      await (await audit.getFunction("setEmergencyStaff")(staffId, enabled)).wait();
+    } catch (err) {
+      throw decodeRevert(audit, err);
+    }
+  } finally {
+    provider.destroy();
   }
 }

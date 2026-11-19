@@ -6,6 +6,7 @@ import type { Server } from "node:http";
 import { MongoClient } from "mongodb";
 import { Wallet } from "ethers";
 import { createApp } from "../../src/app.js";
+import { openConsentReceipt, sealConsentReceipt } from "../../src/crypto/consent.js";
 import { openAccessLog, openDocument, sealAccessLog, sealDocument } from "../../src/crypto/records.js";
 import { challengeFor, newPayload } from "../../src/crypto/signature.js";
 import { Vault } from "../../src/crypto/vault.js";
@@ -174,14 +175,47 @@ describe("MongoStore (MongoDB reale)", () => {
     }
   });
 
-  it("un indirizzo blockchain appartiene a un solo utente", async () => {
+  it("un wallet appartiene a un solo utente; i medici non ne hanno", async () => {
     const address = Wallet.createRandom().address;
-    assert.equal(await store.setProfile(name("medico"), { role: "doctor", address }), "ok");
+    const secret = "ab".repeat(32);
+    assert.equal(await store.setProfile(name("paziente"), { role: "patient", address, secret }), "ok");
     // Stesso indirizzo scritto in minuscolo: per Ethereum è lo stesso account.
-    const copy = { role: "patient" as const, address: address.toLowerCase() };
+    const copy = { role: "patient" as const, address: address.toLowerCase(), secret };
     assert.equal(await store.setProfile(name("altro"), copy), "duplicate");
-    assert.equal((await store.getProfile(name("medico")))?.role, "doctor");
     assert.equal(await store.getProfile(name("altro")), null);
+    // Più medici senza wallet non violano l'unicità.
+    assert.equal(await store.setProfile(name("medico1"), { role: "doctor" }), "ok");
+    assert.equal(await store.setProfile(name("medico2"), { role: "doctor" }), "ok");
+    assert.deepEqual(await store.getProfile(name("medico1")), { role: "doctor" });
+    assert.deepEqual(await store.getProfile(name("paziente")), { role: "patient", address: address.toLowerCase(), secret });
+  });
+
+  it("le ricevute dei consensi si conservano cifrate e si ritrova l'ultima per ancora", async () => {
+    const vault = Vault.generate();
+    const consentId = "0x" + "11".repeat(32);
+    const receipt = (action: "grant" | "revoke") => ({
+      domain: { name: "test", version: "1", chainId: 31337 },
+      message: {
+        action,
+        patient: name("paz.ricevuta"),
+        doctor: name("dr.ricevuta"),
+        purpose: "care",
+        expiresAt: action === "grant" ? 2_000_000_000 : 0,
+        noticeVersion: "1.0",
+        noticeHash: "0x" + "22".repeat(32),
+        issuedAt: 1_700_000_000,
+        nonce: "0x" + randomBytes(32).toString("hex"),
+      },
+      signature: "0x" + "33".repeat(65),
+      signer: Wallet.createRandom().address,
+    });
+    await store.addConsent(sealConsentReceipt(vault, consentId, receipt("grant")));
+    await store.addConsent(sealConsentReceipt(vault, consentId, receipt("revoke")));
+    const latest = await store.latestConsent(consentId);
+    assert.equal(openConsentReceipt(vault, latest!).message.action, "revoke");
+    const raw = JSON.stringify(await admin.db().collection("consents").find({ consentId }).toArray());
+    assert.ok(!raw.includes(name("paz.ricevuta")) && !raw.includes(name("dr.ricevuta")));
+    assert.equal((await store.listConsentsOf(vault.indexTag(name("paz.ricevuta")))).length, 2);
   });
 
   it("i dettagli di un accesso vengono conservati off-chain, cifrati", async () => {
@@ -215,7 +249,7 @@ describe("MongoStore (MongoDB reale)", () => {
       transports: ["internal"],
     });
     await store.createSession(`oblio-${run}`, username, 60_000, 60_000);
-    await store.setProfile(username, { role: "patient", address: Wallet.createRandom().address });
+    await store.setProfile(username, { role: "patient", address: Wallet.createRandom().address, secret: "ef".repeat(32) });
     await store.addDocument(sealDocument(vault, username, { title: "Esame", body: "Valori nella norma" }));
 
     const r = await store.eraseUser(username, { documents: false });
@@ -310,9 +344,9 @@ describe("MongoStore (MongoDB reale)", () => {
   });
 
   it("l'elenco dei medici non comprende i pazienti", async () => {
-    await store.setProfile(name("dr.elenco"), { role: "doctor", address: Wallet.createRandom().address });
-    await store.setProfile(name("paz.elenco"), { role: "patient", address: Wallet.createRandom().address });
-    const doctors = (await store.listDoctors()).map((d) => d.username);
+    await store.setProfile(name("dr.elenco"), { role: "doctor" });
+    await store.setProfile(name("paz.elenco"), { role: "patient", address: Wallet.createRandom().address, secret: "cd".repeat(32) });
+    const doctors = await store.listDoctors();
     assert.ok(doctors.includes(name("dr.elenco")));
     assert.ok(!doctors.includes(name("paz.elenco")));
   });

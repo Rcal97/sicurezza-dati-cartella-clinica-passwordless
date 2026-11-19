@@ -7,11 +7,11 @@ Progetto d'esame di Sicurezza dei Dati, Università degli Studi di Salerno, Laur
 Prototipo di cartella clinica elettronica in cui:
 
 - pazienti e medici accedono **senza password**, con una passkey FIDO2/WebAuthn, resistente al phishing e al replay;
-- il paziente **concede e revoca il consenso** con il proprio wallet, per una finalità (cura, ricerca, amministrazione) e fino a una scadenza, su uno smart contract;
+- il paziente **concede e revoca il consenso** firmandolo con il proprio wallet (EIP-712), per un medico, una finalità (cura, ricerca, amministrazione) e fino a una scadenza; la ricevuta firmata, con la versione dell'informativa accettata, è conservata cifrata e il suo stato è registrato su uno smart contract;
 - ogni accesso, concesso o negato, è **registrato su blockchain** prima che i dati vengano consegnati;
 - i referti sono **cifrati** con uno schema ibrido post-quantistico (ML-KEM-768 + X25519, AES-256-GCM) e **firmati** dal medico con la passkey.
 
-Sulla blockchain vanno solo indirizzi pseudonimi e impronte crittografiche. Tutti i dati clinici sono **sintetici**.
+Sulla blockchain pubblica **non va alcun dato personale**, nemmeno gli indirizzi di pazienti e medici: solo ancore opache (HMAC-SHA256 con una chiave della struttura e un segreto per ogni paziente), scadenze e impronte crittografiche. Tutti i dati clinici sono **sintetici**.
 
 La relazione completa è nella cartella [`relazione/`](relazione/).
 
@@ -53,23 +53,24 @@ Si eseguono dalla cartella `backend` e simulano gli uffici che identificano le p
 | Comando | A cosa serve |
 | --- | --- |
 | `npm run invito -- <username>` | Rilascia un invito monouso per registrare la prima passkey |
-| `npm run profilo -- <username> <medico\|paziente> <indirizzo>` | Assegna ruolo e indirizzo sulla catena |
+| `npm run profilo -- <username> medico` | Assegna il ruolo di medico |
+| `npm run profilo -- <username> paziente <indirizzo>` | Assegna il ruolo di paziente e il wallet con cui firmerà i consensi |
+| `npm run emergenza -- <medico> [--disabilita]` | Abilita un medico agli accessi d'emergenza (chiede la chiave dell'amministratore dei contratti) |
 | `npm run referto -- <paziente> "<titolo>" <file>` | Carica un referto di laboratorio, cifrato |
 | `npm run revoca -- <username>` | Revoca d'ufficio passkey e sessioni di un utente |
 | `npm run registro-accessi -- [paziente]` | Consulta il registro cifrato degli accessi |
 | `npm run cancella-utente -- <username> [--referti]` | Cancellazione su richiesta (art. 17 GDPR) |
 | `npm run backup-chiavi -- <cartella>` | Backup delle chiavi diviso in 5 quote (soglia 3) |
 | `npm run ripristino-chiavi -- <backup.json> <quota> <quota> <quota>` | Ripristino dalle quote |
-| `npm run wallet-prova -- <indirizzo> [nonce]` | Solo rete locale: invia ether di prova a un account MetaMask |
 
 ## Test
 
 | Gruppo | Comando | Test |
 | --- | --- | --- |
-| Backend, unitari | `npm test` in `backend` | 127 |
-| Backend su MongoDB reale | `npm run test:mongo` in `backend` | 20 |
-| Backend sulla blockchain locale | `npm run test:chain` in `backend` | 8 |
-| Smart contract | `npm test` in `blockchain` | 36 |
+| Backend, unitari | `npm test` in `backend` | 145 |
+| Backend su MongoDB reale | `npm run test:mongo` in `backend` | 21 |
+| Backend sulla blockchain locale | `npm run test:chain` in `backend` | 10 |
+| Smart contract | `npm test` in `blockchain` | 40 |
 
 `test:mongo` richiede MongoDB avviato; `test:chain` richiede il nodo Hardhat avviato e i contratti pubblicati.
 

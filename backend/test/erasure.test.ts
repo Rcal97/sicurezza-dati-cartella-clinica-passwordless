@@ -2,17 +2,15 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
-import { Wallet } from "ethers";
 import { createApp } from "../src/app.js";
 import { config } from "../src/config.js";
 import { sealDocument } from "../src/crypto/records.js";
 import { Vault } from "../src/crypto/vault.js";
 import { hashToken } from "../src/middleware/session.js";
-import { Purpose } from "../src/models/ledger.js";
 import { MemoryLedger } from "../src/models/memoryLedger.js";
 import { MemoryStore } from "../src/models/memoryStore.js";
 import type { Role } from "../src/models/store.js";
-import { invite } from "./helpers.js";
+import { invite, makeProfile, signConsent } from "./helpers.js";
 import { SoftAuthenticator } from "./softAuthenticator.js";
 
 const store = new MemoryStore();
@@ -39,8 +37,7 @@ async function call(method: "GET" | "POST", path: string, body?: unknown, cookie
 }
 
 async function user(username: string, role: Role) {
-  const address = Wallet.createRandom().address;
-  await store.setProfile(username, { role, address });
+  const wallet = await makeProfile(store, username, role);
   const auth = new SoftAuthenticator();
   const invitation = await invite(store, username);
   const reg = await call("POST", "/webauthn/register/options", { username, invitation });
@@ -50,7 +47,7 @@ async function user(username: string, role: Role) {
     username,
     response: auth.authenticate(options.body, config.origin),
   });
-  return { username, address, auth, cookie: res.setCookie.split(";")[0] };
+  return { username, wallet, auth, cookie: res.setCookie.split(";")[0] };
 }
 
 describe("Cancellazione su richiesta (art. 17 GDPR)", () => {
@@ -70,7 +67,7 @@ describe("Cancellazione su richiesta (art. 17 GDPR)", () => {
   it("il legame con l'indirizzo sulla catena sparisce: nessun medico può più aprire la cartella", async () => {
     const doctor = await user("dr.oblio", "doctor");
     const p = await user("paz.legame", "patient");
-    ledger.grantConsent(p.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, p, doctor.username, "care");
     assert.equal((await call("POST", "/records/access", { patient: p.username, purpose: "care" }, doctor.cookie)).status, 200);
     await store.eraseUser(p.username, { documents: false });
     assert.equal(await store.getProfile(p.username), null);

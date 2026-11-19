@@ -1,29 +1,28 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { Contract, JsonRpcProvider, Wallet, id, ZeroHash } from "ethers";
+import { randomBytes } from "node:crypto";
+import { hexlify, JsonRpcProvider, Wallet, id, ZeroHash } from "ethers";
 import { ledgerConfig } from "../../src/config.js";
-import { EthersLedger } from "../../src/models/ethersLedger.js";
-import { LedgerRevert, Outcome, Purpose } from "../../src/models/ledger.js";
+import { EthersLedger, setEmergencyStaff } from "../../src/models/ethersLedger.js";
+import { LedgerRevert, Outcome } from "../../src/models/ledger.js";
 
 // Test di integrazione: richiedono il nodo locale acceso (npm run node), il deploy
-// (npm run deploy:local) e il file .env. Ogni esecuzione usa medici con indirizzi nuovi.
+// (npm run deploy:local) e il file .env. Ogni esecuzione usa ancore nuove, casuali.
 const cfg = ledgerConfig();
 let ledger: EthersLedger;
 let provider: JsonRpcProvider;
 
-// Funzioni usate solo dai test, per fare le parti del paziente e dell'amministratore.
-const PATIENT_ABI = ["function grantConsent(address grantee, uint8 purpose, uint64 expiresAt)"];
-const ADMIN_ABI = [
-  "function EMERGENCY_ROLE() view returns (bytes32)",
-  "function grantRole(bytes32 role, address account)",
-];
+// Account #0 di Hardhat (amministratore dei contratti nel deploy locale): chiave pubblica.
+const LOCAL_ADMIN_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
 // Vero se il contratto ha rifiutato la transazione con l'errore indicato.
-const revertedWith = (name: string) => (err: unknown) =>
-  err instanceof LedgerRevert && err.errorName === name;
+const revertedWith = (name: string) => (err: unknown) => err instanceof LedgerRevert && err.errorName === name;
 
+const anchor = () => hexlify(randomBytes(32));
 const hash = id("dettagli dell'accesso");
+const receipt = id("ricevuta firmata dal paziente");
 const reason = id("paziente incosciente in pronto soccorso");
+const inOneHour = async () => (await provider.getBlock("latest"))!.timestamp + 3600;
 
 before(async () => {
   ledger = await EthersLedger.connect(cfg);
@@ -44,143 +43,90 @@ describe("EthersLedger (blockchain locale)", () => {
 
   it("rifiuta un indirizzo dove non c'è un contratto", async () => {
     const missing = Wallet.createRandom().address;
-    await assert.rejects(
-      EthersLedger.connect({ ...cfg, auditLog: missing }),
-      /Nessun contratto/,
-    );
+    await assert.rejects(EthersLedger.connect({ ...cfg, auditLog: missing }), /Nessun contratto/);
   });
 
   it("senza consenso: lettura falsa, accesso registrato come negato", async () => {
-    const patient = await provider.getSigner(2);
-    const doctor = Wallet.createRandom().address;
-
-    assert.equal(await ledger.isConsentValid(patient.address, doctor, Purpose.Care), false);
-
-    const first = await ledger.recordAccess({
-      patient: patient.address,
-      accessor: doctor,
-      purpose: Purpose.Care,
-      outcome: Outcome.Denied,
-      recordHash: hash,
-    });
-    const second = await ledger.recordAccess({
-      patient: patient.address,
-      accessor: doctor,
-      purpose: Purpose.Care,
-      outcome: Outcome.Denied,
-      recordHash: hash,
-    });
+    const consentId = anchor();
+    assert.equal(await ledger.isConsentValid(consentId), false);
+    const first = await ledger.recordAccess({ consentId, outcome: Outcome.Denied, recordHash: hash });
+    const second = await ledger.recordAccess({ consentId, outcome: Outcome.Denied, recordHash: hash });
     assert.equal(second, first + 1n);
   });
 
-  it("con consenso per la cura: accesso concesso solo per la cura", async () => {
-    const patient = await provider.getSigner(2);
-    const doctor = Wallet.createRandom().address;
-    const registry = new Contract(cfg.consentRegistry, PATIENT_ABI, patient);
-    const block = await provider.getBlock("latest");
-    const tx = await registry.getFunction("grantConsent")(
-      doctor,
-      Purpose.Care,
-      block!.timestamp + 3600,
-    );
-    await tx.wait();
+  it("il backend registra concessione e revoca; l'accesso concesso vale solo per quell'ancora", async () => {
+    const care = anchor();
+    const research = anchor();
+    await ledger.grantConsent(care, await inOneHour(), receipt);
+    assert.equal(await ledger.isConsentValid(care), true);
+    assert.equal(await ledger.isConsentValid(research), false);
 
-    assert.equal(await ledger.isConsentValid(patient.address, doctor, Purpose.Care), true);
-    assert.equal(await ledger.isConsentValid(patient.address, doctor, Purpose.Research), false);
-
-    const entry = await ledger.recordAccess({
-      patient: patient.address,
-      accessor: doctor,
-      purpose: Purpose.Care,
-      outcome: Outcome.Granted,
-      recordHash: hash,
-    });
-    assert.ok(entry > 0n);
-
+    assert.ok((await ledger.recordAccess({ consentId: care, outcome: Outcome.Granted, recordHash: hash })) > 0n);
     await assert.rejects(
-      ledger.recordAccess({
-        patient: patient.address,
-        accessor: doctor,
-        purpose: Purpose.Research,
-        outcome: Outcome.Granted,
-        recordHash: hash,
-      }),
+      ledger.recordAccess({ consentId: research, outcome: Outcome.Granted, recordHash: hash }),
+      revertedWith("ConsentNotValid"),
+    );
+
+    await ledger.revokeConsent(care, receipt);
+    assert.equal(await ledger.isConsentValid(care), false);
+    await assert.rejects(
+      ledger.recordAccess({ consentId: care, outcome: Outcome.Granted, recordHash: hash }),
       revertedWith("ConsentNotValid"),
     );
   });
 
-  it("accesso d'emergenza: solo personale abilitato e con motivazione", async () => {
-    const patient = await provider.getSigner(2);
-    const erDoctor = Wallet.createRandom().address;
+  it("il contratto rifiuta scadenze non valide e concessioni senza ricevuta", async () => {
+    const block = (await provider.getBlock("latest"))!.timestamp;
+    await assert.rejects(ledger.grantConsent(anchor(), block - 10, receipt), revertedWith("InvalidExpiry"));
+    await assert.rejects(ledger.grantConsent(anchor(), block + 3600, ZeroHash), revertedWith("MissingReceipt"));
+  });
 
+  it("le transazioni partono dal backend e gli eventi contengono solo valori opachi", async () => {
+    const consentId = anchor();
+    const before = await provider.getBlockNumber();
+    await ledger.grantConsent(consentId, await inOneHour(), receipt);
+    const logs = await provider.getLogs({ address: cfg.consentRegistry, fromBlock: before + 1 });
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0]!.topics[1], consentId);
+    const tx = await provider.getTransaction(logs[0]!.transactionHash);
+    assert.equal(tx!.from, new Wallet(cfg.privateKey).address);
+  });
+
+  it("accesso d'emergenza: solo ancore abilitate dall'amministratore e con motivazione", async () => {
+    const erDoctor = anchor();
     await assert.rejects(
-      ledger.recordEmergencyAccess({
-        patient: patient.address,
-        accessor: erDoctor,
-        reasonHash: reason,
-        recordHash: hash,
-      }),
+      ledger.recordEmergencyAccess({ staffId: erDoctor, reasonHash: reason, recordHash: hash }),
       revertedWith("NotEmergencyStaff"),
     );
-
-    // L'amministratore (account #0) abilita il medico al pronto soccorso.
-    const audit = new Contract(cfg.auditLog, ADMIN_ABI, await provider.getSigner(0));
-    const role = await audit.getFunction("EMERGENCY_ROLE")();
-    await (await audit.getFunction("grantRole")(role, erDoctor)).wait();
-
+    // Il backend non può abilitarsi da solo.
     await assert.rejects(
-      ledger.recordEmergencyAccess({
-        patient: patient.address,
-        accessor: erDoctor,
-        reasonHash: ZeroHash,
-        recordHash: hash,
-      }),
+      setEmergencyStaff(cfg, cfg.privateKey, erDoctor, true),
+      revertedWith("AccessControlUnauthorizedAccount"),
+    );
+    await setEmergencyStaff(cfg, LOCAL_ADMIN_KEY, erDoctor, true);
+    await assert.rejects(
+      ledger.recordEmergencyAccess({ staffId: erDoctor, reasonHash: ZeroHash, recordHash: hash }),
       revertedWith("MissingReason"),
     );
-
-    const entry = await ledger.recordEmergencyAccess({
-      patient: patient.address,
-      accessor: erDoctor,
-      reasonHash: reason,
-      recordHash: hash,
-    });
-    assert.ok(entry > 0n);
+    assert.ok((await ledger.recordEmergencyAccess({ staffId: erDoctor, reasonHash: reason, recordHash: hash })) > 0n);
   });
 
   it("dopo una transazione rifiutata il backend continua a scrivere", async () => {
-    const patient = Wallet.createRandom().address;
-    const doctor = Wallet.createRandom().address;
-    const entry = (outcome: Outcome) => ({
-      patient,
-      accessor: doctor,
-      purpose: Purpose.Care,
-      outcome,
-      recordHash: hash,
-    });
-
+    const consentId = anchor();
+    const entry = (outcome: Outcome) => ({ consentId, outcome, recordHash: hash });
     await assert.rejects(ledger.recordAccess(entry(Outcome.Granted)), revertedWith("ConsentNotValid"));
     await assert.rejects(ledger.recordAccess(entry(Outcome.Granted)), revertedWith("ConsentNotValid"));
     assert.ok((await ledger.recordAccess(entry(Outcome.Denied))) > 0n);
   });
 
   it("più scritture contemporanee ricevono identificativi distinti", async () => {
-    const patient = Wallet.createRandom().address;
-    const doctor = Wallet.createRandom().address;
     const ids = await Promise.all(
-      [1, 2, 3, 4, 5].map(() =>
-        ledger.recordAccess({
-          patient,
-          accessor: doctor,
-          purpose: Purpose.Care,
-          outcome: Outcome.Denied,
-          recordHash: hash,
-        }),
-      ),
+      [1, 2, 3, 4, 5].map(() => ledger.recordAccess({ consentId: anchor(), outcome: Outcome.Denied, recordHash: hash })),
     );
     assert.equal(new Set(ids).size, 5);
   });
 
-  it("una chiave senza ruolo RECORDER non può scrivere nell'audit", async () => {
+  it("una chiave senza ruoli non può scrivere né consensi né audit", async () => {
     // Account #3 di Hardhat: chiave pubblica, nessun ruolo sui contratti.
     const intruder = await EthersLedger.connect({
       ...cfg,
@@ -188,13 +134,11 @@ describe("EthersLedger (blockchain locale)", () => {
     });
     try {
       await assert.rejects(
-        intruder.recordAccess({
-          patient: Wallet.createRandom().address,
-          accessor: Wallet.createRandom().address,
-          purpose: Purpose.Care,
-          outcome: Outcome.Denied,
-          recordHash: hash,
-        }),
+        intruder.recordAccess({ consentId: anchor(), outcome: Outcome.Denied, recordHash: hash }),
+        revertedWith("AccessControlUnauthorizedAccount"),
+      );
+      await assert.rejects(
+        intruder.grantConsent(anchor(), await inOneHour(), receipt),
         revertedWith("AccessControlUnauthorizedAccount"),
       );
     } finally {

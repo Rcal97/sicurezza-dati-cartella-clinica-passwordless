@@ -2,16 +2,16 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
-import { Wallet } from "ethers";
 import { createApp } from "../src/app.js";
 import { config } from "../src/config.js";
 import { fingerprint, openAccessLog, sealDocument } from "../src/crypto/records.js";
+import { consentAnchor, staffAnchor } from "../src/crypto/consent.js";
 import { Vault } from "../src/crypto/vault.js";
-import { Outcome, Purpose, type AccessEntry } from "../src/models/ledger.js";
+import { Outcome, type AccessEntry } from "../src/models/ledger.js";
 import { MemoryLedger } from "../src/models/memoryLedger.js";
 import { MemoryStore } from "../src/models/memoryStore.js";
 import type { Role } from "../src/models/store.js";
-import { invite } from "./helpers.js";
+import { invite, makeProfile, signConsent } from "./helpers.js";
 import { SoftAuthenticator } from "./softAuthenticator.js";
 
 const store = new MemoryStore();
@@ -40,8 +40,7 @@ async function call(path: string, body: unknown, cookie?: string) {
 
 // Crea un utente con ruolo e indirizzo, registra la sua passkey e fa il login.
 async function user(username: string, role: Role) {
-  const address = Wallet.createRandom().address;
-  await store.setProfile(username, { role, address });
+  const wallet = await makeProfile(store, username, role);
   const auth = new SoftAuthenticator();
   const invitation = await invite(store, username);
   const reg = await call("/webauthn/register/options", { username, invitation });
@@ -51,7 +50,7 @@ async function user(username: string, role: Role) {
     username,
     response: auth.authenticate(options.body, config.origin),
   });
-  return { username, address, cookie: res.setCookie.split(";")[0] };
+  return { username, wallet, cookie: res.setCookie.split(";")[0] };
 }
 
 const lastEntry = () => ledger.entries.at(-1) as AccessEntry & { entryId: bigint };
@@ -94,13 +93,15 @@ describe("Accesso alla cartella: consenso e audit", () => {
     assert.equal(res.status, 403);
     assert.equal(res.body.documents, undefined);
     assert.equal(lastEntry().outcome, Outcome.Denied);
-    assert.equal(lastEntry().accessor, doctor.address);
+    // Sulla catena c'è solo l'ancora del consenso richiesto: nessun nome né indirizzo.
+    const secret = (await store.getProfile(patient.username))!.secret!;
+    assert.equal(lastEntry().consentId, consentAnchor(vault, secret, doctor.username, "care"));
   });
 
   it("con il consenso per la cura il medico riceve la cartella e l'accesso è registrato", async () => {
     const doctor = await user("dr.cura", "doctor");
     const patient = await user("paz.cura", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
 
     const res = await call("/records/access", { patient: patient.username, purpose: "care" }, doctor.cookie);
     assert.equal(res.status, 200);
@@ -112,7 +113,7 @@ describe("Accesso alla cartella: consenso e audit", () => {
   it("l'impronta sulla catena corrisponde ai dettagli conservati off-chain", async () => {
     const doctor = await user("dr.impronta", "doctor");
     const patient = await user("paz.impronta", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
     await call("/records/access", { patient: patient.username, purpose: "care" }, doctor.cookie);
 
     const log = store.accessLog.at(-1)!;
@@ -128,7 +129,7 @@ describe("Accesso alla cartella: consenso e audit", () => {
   it("il consenso per la cura non permette l'accesso per la ricerca", async () => {
     const doctor = await user("dr.ricerca", "doctor");
     const patient = await user("paz.ricerca", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
     const res = await call("/records/access", { patient: patient.username, purpose: "research" }, doctor.cookie);
     assert.equal(res.status, 403);
   });
@@ -136,8 +137,8 @@ describe("Accesso alla cartella: consenso e audit", () => {
   it("dopo la revoca l'accesso è negato", async () => {
     const doctor = await user("dr.revoca", "doctor");
     const patient = await user("paz.revoca", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
-    ledger.revokeConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
+    await signConsent(store, ledger, vault, patient, doctor.username, "care", "revoke");
     const res = await call("/records/access", { patient: patient.username, purpose: "care" }, doctor.cookie);
     assert.equal(res.status, 403);
   });
@@ -145,11 +146,11 @@ describe("Accesso alla cartella: consenso e audit", () => {
   it("revoca tra la lettura e la scrittura: il contratto rifiuta e l'accesso resta negato", async () => {
     const doctor = await user("dr.corsa", "doctor");
     const patient = await user("paz.corsa", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
     // Il paziente revoca proprio mentre il backend sta per scrivere nell'audit.
     const original = ledger.recordAccess.bind(ledger);
     ledger.recordAccess = async (e) => {
-      ledger.revokeConsent(patient.address, doctor.address, Purpose.Care);
+      await signConsent(store, ledger, vault, patient, doctor.username, "care", "revoke");
       ledger.recordAccess = original;
       return original(e);
     };
@@ -162,7 +163,7 @@ describe("Accesso alla cartella: consenso e audit", () => {
   it("se la blockchain non risponde non si consegna nulla", async () => {
     const doctor = await user("dr.offline", "doctor");
     const patient = await user("paz.offline", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
     const original = ledger.recordAccess.bind(ledger);
     ledger.recordAccess = async () => {
       throw new Error("connect ECONNREFUSED 127.0.0.1:8545");
@@ -183,7 +184,7 @@ describe("Referti cifrati", () => {
     const patient = await user("paz.referti", "patient");
     await store.addDocument(sealDocument(vault, patient.username, { title: "Emocromo", body: "Valori nella norma." }));
     await store.addDocument(sealDocument(vault, patient.username, { title: "RX torace", body: "Nessun reperto." }));
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
 
     const res = await call("/records/access", { patient: patient.username, purpose: "care" }, doctor.cookie);
     assert.equal(res.status, 200);
@@ -213,7 +214,7 @@ describe("Referti cifrati", () => {
     bad.sealed = { ...bad.sealed, ciphertext: good.sealed.ciphertext };
     await store.addDocument(good);
     await store.addDocument(bad);
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
 
     const res = await call("/records/access", { patient: patient.username, purpose: "care" }, doctor.cookie);
     assert.equal(res.status, 200);
@@ -228,7 +229,7 @@ describe("Referti cifrati", () => {
     const other = await user("paz.destinazione", "patient");
     const doc = sealDocument(vault, victim.username, { title: "Diagnosi", body: "Riservata" });
     await store.addDocument({ ...doc, patient: other.username });
-    ledger.grantConsent(other.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, other, doctor.username, "care");
 
     const res = await call("/records/access", { patient: other.username, purpose: "care" }, doctor.cookie);
     assert.equal(res.body.documents[0].error, "integrità non verificata");
@@ -255,7 +256,7 @@ describe("Accesso d'emergenza", () => {
   it("senza una motivazione adeguata l'accesso è rifiutato", async () => {
     const doctor = await user("dr.ps1", "doctor");
     const patient = await user("paz.urgenza2", "patient");
-    ledger.emergencyStaff.add(doctor.address.toLowerCase());
+    ledger.emergencyStaff.add(staffAnchor(vault, doctor.username));
     for (const r of [undefined, "", "urgente", "x".repeat(501)]) {
       const res = await call("/records/emergency", { patient: patient.username, reason: r }, doctor.cookie);
       assert.equal(res.status, 400);
@@ -265,7 +266,7 @@ describe("Accesso d'emergenza", () => {
   it("un medico abilitato accede senza consenso e l'accesso è registrato a parte", async () => {
     const doctor = await user("dr.ps2", "doctor");
     const patient = await user("paz.urgenza3", "patient");
-    ledger.emergencyStaff.add(doctor.address.toLowerCase());
+    ledger.emergencyStaff.add(staffAnchor(vault, doctor.username));
 
     const res = await call("/records/emergency", { patient: patient.username, reason }, doctor.cookie);
     assert.equal(res.status, 200);

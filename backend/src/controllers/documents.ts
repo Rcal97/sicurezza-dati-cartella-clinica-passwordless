@@ -5,9 +5,10 @@ import { config } from "../config.js";
 import { sealAccessLog, sealDocument } from "../crypto/records.js";
 import { challengeFor, newPayload, payloadDigest } from "../crypto/signature.js";
 import type { Vault } from "../crypto/vault.js";
-import { LedgerRevert, Outcome, Purpose, type Ledger } from "../models/ledger.js";
+import { LedgerRevert, Outcome, type Ledger } from "../models/ledger.js";
 import type { Store } from "../models/store.js";
 import { challengeOf } from "./authentication.js";
+import { consentStatus } from "./consents.js";
 import { parties } from "./records.js";
 import { randomBytes, randomUUID } from "node:crypto";
 
@@ -33,7 +34,7 @@ export function documentsController(store: Store, ledger: Ledger, vault: Vault) 
       // Scrive nella cartella solo chi ha in cura il paziente: serve il consenso per la cura.
       let consent: boolean;
       try {
-        consent = await ledger.isConsentValid(p.patient.address, p.doctor.address, Purpose.Care);
+        consent = (await consentStatus(store, ledger, vault, p.patientName, p.patient, p.requester, "care")).valid;
       } catch {
         res.status(503).json({ error: "registro dei consensi non disponibile, riprova più tardi" });
         return;
@@ -120,11 +121,11 @@ export function documentsController(store: Store, ledger: Ledger, vault: Vault) 
       // Come per la lettura, anche la scrittura passa dal registro di audit, che verifica
       // di nuovo il consenso. Se la catena non risponde, il referto non viene salvato.
       try {
+        const status = await consentStatus(store, ledger, vault, payload.patient, patient, requester, "care");
+        if (!status.valid) throw new LedgerRevert("ConsentNotValid");
         const sealedLog = sealAccessLog(vault, null, details);
         const entryId = await ledger.recordAccess({
-          patient: patient.address,
-          accessor: doctor.address,
-          purpose: Purpose.Care,
+          consentId: status.consentId,
           outcome: Outcome.Granted,
           recordHash: sealedLog.recordHash,
         });

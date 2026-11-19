@@ -3,12 +3,14 @@ import { Binary, MongoClient, MongoServerError, type Collection, type Db } from 
 import type { WebAuthnCredential } from "@simplewebauthn/server";
 import type {
   AccessLogEntry,
+  ConsentRequest,
   ErasureResult,
   PendingRegistration,
   Profile,
   Role,
   SignatureRequest,
   Store,
+  StoredConsent,
   StoredDocument,
   User,
 } from "./store.js";
@@ -25,10 +27,11 @@ interface UserDoc {
   credentials: CredentialDoc[];
 }
 interface ChallengeDoc {
-  _id: string; // "registrazione:<username>", "login:<challenge>" oppure "firma:<challenge>"
+  _id: string; // "registrazione:<username>", "login:<challenge>", "firma:<challenge>" o "consenso:<nonce>"
   challenge?: string;
   webauthnUserID?: string;
   signature?: SignatureRequest;
+  consent?: ConsentRequest;
   expiresAt: Date;
 }
 interface SessionDoc {
@@ -57,10 +60,22 @@ interface ErasedDoc {
 interface ProfileDoc {
   _id: string; // username
   role: Role;
-  address: string; // in minuscolo, per il controllo di unicità
+  address?: string; // wallet del paziente, in minuscolo per il controllo di unicità
+  secret?: string; // segreto delle ancore del paziente
 }
 
 const DUPLICATE_KEY = 11000;
+
+// I campi assenti nel nuovo profilo si tolgono da quello salvato (MongoDB rifiuta un $unset vuoto).
+function profileUpdate(profile: Profile) {
+  const set: Partial<ProfileDoc> = { role: profile.role };
+  const unset: Record<string, ""> = {};
+  if (profile.address) set.address = profile.address.toLowerCase();
+  else unset.address = "";
+  if (profile.secret) set.secret = profile.secret;
+  else unset.secret = "";
+  return Object.keys(unset).length > 0 ? { $set: set, $unset: unset } : { $set: set };
+}
 const erasedId = (username: string) => createHash("sha256").update(username).digest("hex");
 
 export class MongoStore implements Store {
@@ -72,6 +87,7 @@ export class MongoStore implements Store {
     private readonly invitations: Collection<InvitationDoc>,
     private readonly profiles: Collection<ProfileDoc>,
     private readonly accessLog: Collection<AccessLogEntry>,
+    private readonly consents: Collection<StoredConsent>,
     private readonly documents: Collection<DocumentDoc>,
     private readonly erased: Collection<ErasedDoc>,
   ) {}
@@ -88,6 +104,7 @@ export class MongoStore implements Store {
       db.collection<InvitationDoc>("invitations"),
       db.collection<ProfileDoc>("profiles"),
       db.collection<AccessLogEntry>("access_log"),
+      db.collection<StoredConsent>("consents"),
       db.collection<DocumentDoc>("documents"),
       db.collection<ErasedDoc>("erased_users"),
     );
@@ -105,8 +122,15 @@ export class MongoStore implements Store {
     await this.challenges.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await this.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await this.invitations.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-    // Un indirizzo blockchain appartiene a un solo utente.
-    await this.profiles.createIndex({ address: 1 }, { unique: true });
+    // Un wallet appartiene a un solo utente; i medici non ne hanno (indice parziale).
+    // L'indice della versione precedente valeva per tutti i profili: se c'è, si sostituisce.
+    await this.profiles.dropIndex("address_1").catch(() => undefined);
+    await this.profiles.createIndex(
+      { address: 1 },
+      { name: "wallet_unico", unique: true, partialFilterExpression: { address: { $type: "string" } } },
+    );
+    await this.consents.createIndex({ patientTag: 1, createdAt: 1 });
+    await this.consents.createIndex({ consentId: 1, createdAt: 1 });
     await this.documents.createIndex({ patient: 1, createdAt: 1 });
     await this.accessLog.createIndex({ patientTag: 1, createdAt: 1 });
   }
@@ -189,6 +213,16 @@ export class MongoStore implements Store {
     return doc.signature;
   }
 
+  async saveConsentRequest(nonce: string, request: ConsentRequest, ttlMs: number): Promise<void> {
+    await this.challenges.insertOne({ _id: `consenso:${nonce}`, consent: request, expiresAt: new Date(Date.now() + ttlMs) });
+  }
+
+  async takeConsentRequest(nonce: string, username: string): Promise<ConsentRequest | null> {
+    const doc = await this.challenges.findOneAndDelete({ _id: `consenso:${nonce}`, "consent.username": username });
+    if (!doc || doc.expiresAt.getTime() < Date.now() || !doc.consent) return null;
+    return doc.consent;
+  }
+
   async takeLoginChallenge(challenge: string): Promise<boolean> {
     const doc = await this.challenges.findOneAndDelete({ _id: `login:${challenge}` });
     return doc !== null && doc.expiresAt.getTime() >= Date.now();
@@ -258,7 +292,7 @@ export class MongoStore implements Store {
     try {
       await this.profiles.updateOne(
         { _id: username },
-        { $set: { role: profile.role, address: profile.address.toLowerCase() } },
+        profileUpdate(profile),
         { upsert: true },
       );
       return "ok" as const;
@@ -270,12 +304,31 @@ export class MongoStore implements Store {
 
   async getProfile(username: string): Promise<Profile | null> {
     const doc = await this.profiles.findOne({ _id: username });
-    return doc ? { role: doc.role, address: doc.address } : null;
+    if (!doc) return null;
+    return {
+      role: doc.role,
+      ...(doc.address ? { address: doc.address } : {}),
+      ...(doc.secret ? { secret: doc.secret } : {}),
+    };
   }
 
-  async listDoctors(): Promise<Array<{ username: string; address: string }>> {
-    const docs = await this.profiles.find({ role: "doctor" }).sort({ _id: 1 }).limit(1000).toArray();
-    return docs.map((d) => ({ username: d._id, address: d.address }));
+  async listDoctors(): Promise<string[]> {
+    const docs = await this.profiles.find({ role: "doctor" }, { projection: { _id: 1 } }).sort({ _id: 1 }).limit(1000).toArray();
+    return docs.map((d) => d._id);
+  }
+
+  async addConsent(entry: StoredConsent): Promise<void> {
+    await this.consents.insertOne({ ...entry });
+  }
+
+  async listConsentsOf(patientTag: string): Promise<StoredConsent[]> {
+    const docs = await this.consents.find({ patientTag }, { projection: { _id: 0 } }).sort({ createdAt: 1, _id: 1 }).limit(10_000).toArray();
+    return docs as StoredConsent[];
+  }
+
+  async latestConsent(consentId: string): Promise<StoredConsent | null> {
+    const doc = await this.consents.findOne({ consentId }, { projection: { _id: 0 }, sort: { createdAt: -1, _id: -1 } });
+    return (doc as StoredConsent | null) ?? null;
   }
 
   async addAccessLog(entry: AccessLogEntry): Promise<void> {
@@ -313,7 +366,7 @@ export class MongoStore implements Store {
     const account = (await this.users.deleteOne({ _id: username })).deletedCount === 1;
     const sessions = (await this.sessions.deleteMany({ username })).deletedCount;
     const invitations = (await this.invitations.deleteMany({ username })).deletedCount;
-    await this.challenges.deleteMany({ $or: [{ _id: `registrazione:${username}` }, { "signature.username": username }] });
+    await this.challenges.deleteMany({ $or: [{ _id: `registrazione:${username}` }, { "signature.username": username }, { "consent.username": username }] });
     const profile = (await this.profiles.deleteOne({ _id: username })).deletedCount === 1;
     const documents = options.documents ? (await this.documents.deleteMany({ patient: username })).deletedCount : 0;
     const documentsKept = await this.documents.countDocuments({ patient: username });

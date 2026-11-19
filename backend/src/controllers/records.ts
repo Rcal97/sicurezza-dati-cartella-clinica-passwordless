@@ -3,17 +3,11 @@ import type { Request, Response } from "express";
 import { fingerprint, openDocument, sealAccessLog } from "../crypto/records.js";
 import { verifyDocumentSignature } from "../crypto/signature.js";
 import type { Vault } from "../crypto/vault.js";
-import { LedgerRevert, Outcome, Purpose, type Ledger } from "../models/ledger.js";
+import { staffAnchor } from "../crypto/consent.js";
+import { LedgerRevert, Outcome, type Ledger } from "../models/ledger.js";
 import type { AccessDetails, Profile, Store } from "../models/store.js";
+import { consentStatus, PURPOSES } from "./consents.js";
 import { USERNAME } from "./registration.js";
-
-// Finalità accettate dall'API. Una Map, non un oggetto: una chiave come "toString"
-// o "__proto__" non deve trovare per sbaglio un valore ereditato.
-const PURPOSES = new Map<string, Purpose>([
-  ["care", Purpose.Care],
-  ["research", Purpose.Research],
-  ["administration", Purpose.Administration],
-]);
 
 const nonce = (): string => randomBytes(16).toString("hex");
 
@@ -40,6 +34,11 @@ export async function parties(store: Store, req: Request, res: Response): Promis
   const patient = await store.getProfile(patientName);
   if (patient?.role !== "patient") {
     res.status(404).json({ error: "paziente non trovato" });
+    return null;
+  }
+  // Senza il segreto non si calcolano le ancore dei consensi: il profilo va completato.
+  if (!patient.secret) {
+    res.status(409).json({ error: "profilo del paziente incompleto: rivolgersi alla struttura" });
     return null;
   }
   return { requester, doctor, patientName, patient };
@@ -82,14 +81,14 @@ export function recordsController(store: Store, ledger: Ledger, vault: Vault) {
       const p = await parties(store, req, res);
       if (!p) return;
       const purposeName = req.body?.purpose;
-      const purpose = typeof purposeName === "string" ? PURPOSES.get(purposeName) : undefined;
-      if (purpose === undefined) {
+      if (typeof purposeName !== "string" || !PURPOSES.has(purposeName)) {
         res.status(400).json({ error: "finalità non valida" });
         return;
       }
 
       // Registra l'accesso con l'esito indicato e ne conserva i dettagli off-chain.
-      const audit = async (granted: boolean) => {
+      // Sulla catena va l'ancora del consenso richiesto, non i nomi.
+      const audit = async (consentId: string, granted: boolean) => {
         const details: AccessDetails = {
           kind: "ordinary",
           requester: p.requester,
@@ -101,9 +100,7 @@ export function recordsController(store: Store, ledger: Ledger, vault: Vault) {
         };
         const recordHash = fingerprint(details);
         const entryId = await ledger.recordAccess({
-          patient: p.patient.address,
-          accessor: p.doctor.address,
-          purpose,
+          consentId,
           outcome: granted ? Outcome.Granted : Outcome.Denied,
           recordHash,
         });
@@ -114,15 +111,16 @@ export function recordsController(store: Store, ledger: Ledger, vault: Vault) {
       let granted: boolean;
       let entryId: bigint;
       try {
-        granted = await ledger.isConsentValid(p.patient.address, p.doctor.address, purpose);
+        const status = await consentStatus(store, ledger, vault, p.patientName, p.patient, p.requester, purposeName);
+        granted = status.valid;
         try {
-          entryId = await audit(granted);
+          entryId = await audit(status.consentId, granted);
         } catch (err) {
           // Il consenso è stato revocato tra la lettura e la scrittura: il contratto
           // rifiuta "concesso", e l'accesso viene registrato e trattato come negato.
           if (!(err instanceof LedgerRevert && err.errorName === "ConsentNotValid")) throw err;
           granted = false;
-          entryId = await audit(false);
+          entryId = await audit(status.consentId, false);
         }
       } catch (err) {
         // Senza registro di audit non si consegna nulla (fail-closed).
@@ -139,7 +137,7 @@ export function recordsController(store: Store, ledger: Ledger, vault: Vault) {
     },
 
     // Accesso d'emergenza (break-glass): niente consenso, ma motivazione obbligatoria
-    // e medico abilitato sul contratto. La decisione spetta al contratto, non al backend.
+    // e medico abilitato sul contratto (tramite la sua ancora). La decisione spetta al contratto.
     async emergency(req: Request, res: Response): Promise<void> {
       const p = await parties(store, req, res);
       if (!p) return;
@@ -161,8 +159,7 @@ export function recordsController(store: Store, ledger: Ledger, vault: Vault) {
       let entryId: bigint;
       try {
         entryId = await ledger.recordEmergencyAccess({
-          patient: p.patient.address,
-          accessor: p.doctor.address,
+          staffId: staffAnchor(vault, p.requester),
           reasonHash: fingerprint({ reason, nonce: details.nonce }),
           recordHash,
         });

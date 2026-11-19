@@ -1,11 +1,13 @@
 import type { WebAuthnCredential } from "@simplewebauthn/server";
 import type {
   AccessLogEntry,
+  ConsentRequest,
   ErasureResult,
   PendingRegistration,
   Profile,
   SignatureRequest,
   Store,
+  StoredConsent,
   StoredDocument,
   User,
 } from "./store.js";
@@ -16,6 +18,7 @@ export class MemoryStore implements Store {
   private readonly registrations = new Map<string, PendingRegistration & { expiresAt: number }>();
   private readonly logins = new Map<string, number>(); // challenge -> scadenza
   private readonly signatures = new Map<string, SignatureRequest & { expiresAt: number }>();
+  private readonly consentRequests = new Map<string, ConsentRequest & { expiresAt: number }>();
   private readonly sessions = new Map<string, { username: string; expiresAt: number; absoluteExpiresAt: number }>();
   private readonly invitations = new Map<string, { username: string; expiresAt: number }>();
   private readonly profiles = new Map<string, Profile>();
@@ -23,6 +26,7 @@ export class MemoryStore implements Store {
   // Pubblico per permettere ai test di controllarne il contenuto.
   readonly accessLog: AccessLogEntry[] = [];
   readonly documents: StoredDocument[] = [];
+  readonly consents: StoredConsent[] = [];
 
   async getUser(username: string): Promise<User | null> {
     return this.users.get(username) ?? null;
@@ -70,6 +74,18 @@ export class MemoryStore implements Store {
     this.signatures.delete(challenge);
     if (!entry || entry.expiresAt < Date.now()) return null;
     return { username: entry.username, payload: entry.payload };
+  }
+
+  async saveConsentRequest(nonce: string, request: ConsentRequest, ttlMs: number): Promise<void> {
+    this.consentRequests.set(nonce, { ...request, expiresAt: Date.now() + ttlMs });
+  }
+
+  async takeConsentRequest(nonce: string, username: string): Promise<ConsentRequest | null> {
+    const entry = this.consentRequests.get(nonce);
+    if (entry?.username !== username) return null;
+    this.consentRequests.delete(nonce);
+    if (entry.expiresAt < Date.now()) return null;
+    return { username: entry.username, message: entry.message };
   }
 
   async takeLoginChallenge(challenge: string): Promise<boolean> {
@@ -136,7 +152,7 @@ export class MemoryStore implements Store {
 
   async setProfile(username: string, profile: Profile) {
     for (const [other, p] of this.profiles) {
-      if (other !== username && p.address.toLowerCase() === profile.address.toLowerCase()) {
+      if (other !== username && profile.address && p.address?.toLowerCase() === profile.address.toLowerCase()) {
         return "duplicate" as const;
       }
     }
@@ -148,11 +164,23 @@ export class MemoryStore implements Store {
     return this.profiles.get(username) ?? null;
   }
 
-  async listDoctors(): Promise<Array<{ username: string; address: string }>> {
+  async listDoctors(): Promise<string[]> {
     return [...this.profiles]
       .filter(([, p]) => p.role === "doctor")
-      .map(([username, p]) => ({ username, address: p.address }))
-      .sort((a, b) => a.username.localeCompare(b.username));
+      .map(([username]) => username)
+      .sort((a, b) => a.localeCompare(b));
+  }
+
+  async addConsent(entry: StoredConsent): Promise<void> {
+    this.consents.push(entry);
+  }
+
+  async listConsentsOf(patientTag: string): Promise<StoredConsent[]> {
+    return this.consents.filter((c) => c.patientTag === patientTag);
+  }
+
+  async latestConsent(consentId: string): Promise<StoredConsent | null> {
+    return this.consents.findLast((c) => c.consentId === consentId) ?? null;
   }
 
   async addAccessLog(entry: AccessLogEntry): Promise<void> {
@@ -184,6 +212,7 @@ export class MemoryStore implements Store {
     for (const [hash, i] of this.invitations) if (i.username === username && this.invitations.delete(hash)) invitations++;
     this.registrations.delete(username);
     for (const [challenge, r] of this.signatures) if (r.username === username) this.signatures.delete(challenge);
+    for (const [nonce, r] of this.consentRequests) if (r.username === username) this.consentRequests.delete(nonce);
     const profile = this.profiles.delete(username);
     let documents = 0;
     if (options.documents) {

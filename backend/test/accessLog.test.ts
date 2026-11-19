@@ -2,15 +2,14 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
-import { Wallet } from "ethers";
 import { createApp } from "../src/app.js";
 import { config } from "../src/config.js";
+import { staffAnchor } from "../src/crypto/consent.js";
 import { Vault } from "../src/crypto/vault.js";
-import { Purpose } from "../src/models/ledger.js";
 import { MemoryLedger } from "../src/models/memoryLedger.js";
 import { MemoryStore } from "../src/models/memoryStore.js";
 import type { Role } from "../src/models/store.js";
-import { invite } from "./helpers.js";
+import { invite, makeProfile, signConsent } from "./helpers.js";
 import { SoftAuthenticator } from "./softAuthenticator.js";
 
 const store = new MemoryStore();
@@ -37,8 +36,7 @@ async function call(method: "GET" | "POST", path: string, body?: unknown, cookie
 }
 
 async function user(username: string, role: Role) {
-  const address = Wallet.createRandom().address;
-  await store.setProfile(username, { role, address });
+  const wallet = await makeProfile(store, username, role);
   const auth = new SoftAuthenticator();
   const invitation = await invite(store, username);
   const reg = await call("POST", "/webauthn/register/options", { username, invitation });
@@ -48,7 +46,7 @@ async function user(username: string, role: Role) {
     username,
     response: auth.authenticate(options.body, config.origin),
   });
-  return { username, address, cookie: res.setCookie.split(";")[0] };
+  return { username, wallet, cookie: res.setCookie.split(";")[0] };
 }
 
 describe("Registro degli accessi per il paziente", () => {
@@ -67,7 +65,7 @@ describe("Registro degli accessi per il paziente", () => {
     const doctor = await user("dr.visita", "doctor");
     const patient = await user("paz.registro", "patient");
     await call("POST", "/records/access", { patient: patient.username, purpose: "research" }, doctor.cookie);
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
     await call("POST", "/records/access", { patient: patient.username, purpose: "care" }, doctor.cookie);
 
     const res = await call("GET", "/records/access-log", undefined, patient.cookie);
@@ -99,7 +97,7 @@ describe("Registro degli accessi per il paziente", () => {
   it("vede anche gli accessi d'emergenza, con la motivazione", async () => {
     const doctor = await user("dr.urgenza", "doctor");
     const patient = await user("paz.urgenza", "patient");
-    ledger.emergencyStaff.add(doctor.address.toLowerCase());
+    ledger.emergencyStaff.add(staffAnchor(vault, doctor.username));
     const reason = "paziente incosciente in pronto soccorso";
     await call("POST", "/records/emergency", { patient: patient.username, reason }, doctor.cookie);
     const res = await call("GET", "/records/access-log", undefined, patient.cookie);

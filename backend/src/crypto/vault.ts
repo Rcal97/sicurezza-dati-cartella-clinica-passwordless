@@ -106,6 +106,14 @@ export class Vault {
     return createHmac("sha256", key).update(value).digest("hex");
   }
 
+  // Ancora per la blockchain pubblica (32 byte, 0x...): HMAC-SHA256 con una chiave dedicata,
+  // separata da quella dell'indice. Le parti sono codificate in JSON, quindi ("a|b", "c") e
+  // ("a", "b|c") danno ancore diverse. La versione nell'info permette di ruotare la chiave.
+  anchor(...parts: string[]): string {
+    const key = Buffer.from(hkdfSync("sha256", this.exportSecret(), Buffer.alloc(0), "cartella-clinica/ancore/v1", 32));
+    return "0x" + createHmac("sha256", key).update(JSON.stringify(parts)).digest("hex");
+  }
+
   // Impronta delle chiavi pubbliche: permette di controllare che due copie siano le stesse chiavi.
   fingerprint(): string {
     const spki = (k: KeyObject) => k.export({ format: "der", type: "spki" });

@@ -2,17 +2,16 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
-import { Wallet } from "ethers";
 import { createApp } from "../src/app.js";
 import { config } from "../src/config.js";
 import { openAccessLog, openDocument, sealDocument } from "../src/crypto/records.js";
 import { verifyDocumentSignature } from "../src/crypto/signature.js";
 import { Vault } from "../src/crypto/vault.js";
-import { Outcome, Purpose } from "../src/models/ledger.js";
+import { Outcome } from "../src/models/ledger.js";
 import { MemoryLedger } from "../src/models/memoryLedger.js";
 import { MemoryStore } from "../src/models/memoryStore.js";
 import type { Role } from "../src/models/store.js";
-import { invite } from "./helpers.js";
+import { invite, makeProfile, signConsent } from "./helpers.js";
 import { SoftAuthenticator } from "./softAuthenticator.js";
 
 const store = new MemoryStore();
@@ -39,14 +38,13 @@ async function call(path: string, body: unknown, cookie?: string) {
 }
 
 async function user(username: string, role: Role, auth = new SoftAuthenticator()) {
-  const address = Wallet.createRandom().address;
-  await store.setProfile(username, { role, address });
+  const wallet = await makeProfile(store, username, role);
   const invitation = await invite(store, username);
   const reg = await call("/webauthn/register/options", { username, invitation });
   await call("/webauthn/register/verify", { username, invitation, response: auth.register(reg.body, config.origin) });
   const options = await call("/webauthn/authenticate/options", { username });
   const res = await call("/webauthn/authenticate/verify", { username, response: auth.authenticate(options.body, config.origin) });
-  return { username, address, auth, cookie: res.setCookie.split(";")[0] };
+  return { username, wallet, auth, cookie: res.setCookie.split(";")[0] };
 }
 
 type User = Awaited<ReturnType<typeof user>>;
@@ -67,7 +65,7 @@ describe("Referti firmati dal medico con la passkey", () => {
   it("il medico che ha in cura il paziente firma un referto, che risulta firmato e valido", async () => {
     const doctor = await user("dr.firma", "doctor");
     const patient = await user("paz.firma", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
 
     const res = await sign(doctor, patient.username);
     assert.equal(res.status, 200);
@@ -81,7 +79,7 @@ describe("Referti firmati dal medico con la passkey", () => {
   it("funziona anche con una passkey post-quantistica ML-DSA-44", async () => {
     const doctor = await user("dr.pq", "doctor", new SoftAuthenticator("ML-DSA-44"));
     const patient = await user("paz.pq", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
     assert.equal((await sign(doctor, patient.username)).status, 200);
     const docs = (await readRecord(doctor, patient)).body.documents;
     assert.equal(docs[0].signature.valid, true);
@@ -90,7 +88,7 @@ describe("Referti firmati dal medico con la passkey", () => {
   it("la scrittura è registrata nell'audit, on-chain e nel registro cifrato", async () => {
     const doctor = await user("dr.traccia", "doctor");
     const patient = await user("paz.traccia", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
     const res = await sign(doctor, patient.username);
     const entry = ledger.entries.at(-1)!;
     assert.equal("outcome" in entry && entry.outcome, Outcome.Granted);
@@ -103,7 +101,7 @@ describe("Referti firmati dal medico con la passkey", () => {
     const doctor = await user("dr.lettore", "doctor");
     const patient = await user("paz.laboratorio", "patient");
     await store.addDocument(sealDocument(vault, patient.username, { title: "Emocromo", body: "Nella norma" }));
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
     const docs = (await readRecord(doctor, patient)).body.documents;
     assert.equal(docs[0].signature, null);
   });
@@ -113,7 +111,7 @@ describe("Referti firmati: attacchi", () => {
   it("senza consenso per la cura non si scrive nella cartella", async () => {
     const doctor = await user("dr.estraneo", "doctor");
     const patient = await user("paz.estraneo", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Research); // solo ricerca
+    await signConsent(store, ledger, vault, patient, doctor.username, "research"); // solo ricerca
     assert.equal((await sign(doctor, patient.username)).status, 403);
   });
 
@@ -127,7 +125,7 @@ describe("Referti firmati: attacchi", () => {
     const doctor = await user("dr.vero", "doctor");
     const other = await user("dr.complice", "doctor");
     const patient = await user("paz.contesa", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
     // La richiesta è di dr.vero, ma la firma viene dalla passkey di dr.complice.
     assert.equal((await sign(doctor, patient.username, report, other.auth)).status, 401);
   });
@@ -136,7 +134,7 @@ describe("Referti firmati: attacchi", () => {
     const doctor = await user("dr.riuso", "doctor");
     const other = await user("dr.intruso", "doctor");
     const patient = await user("paz.riuso", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
     const options = await call("/records/documents/options", { patient: patient.username, ...report }, doctor.cookie);
     const response = doctor.auth.authenticate(options.body, config.origin);
     // Un altro medico autenticato prova a usare la firma intercettata: respinto,
@@ -150,7 +148,7 @@ describe("Referti firmati: attacchi", () => {
   it("la firma di un login non vale come firma di un referto", async () => {
     const doctor = await user("dr.login", "doctor");
     const patient = await user("paz.login", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
     await call("/records/documents/options", { patient: patient.username, ...report }, doctor.cookie);
     const loginOptions = await call("/webauthn/authenticate/options", { username: doctor.username });
     const response = doctor.auth.authenticate(loginOptions.body, config.origin);
@@ -160,7 +158,7 @@ describe("Referti firmati: attacchi", () => {
   it("un testo modificato dopo la firma non risulta più firmato", async () => {
     const doctor = await user("dr.integro", "doctor");
     const patient = await user("paz.integro", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
     const res = await sign(doctor, patient.username);
     const stored = store.documents.find((d) => d.id === res.body.id)!;
     const content = openDocument(vault, stored);
@@ -177,7 +175,7 @@ describe("Referti firmati: attacchi", () => {
   it("se la blockchain non risponde il referto non viene salvato", async () => {
     const doctor = await user("dr.offline2", "doctor");
     const patient = await user("paz.offline2", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
     const before = store.documents.length;
     const original = ledger.recordAccess.bind(ledger);
     ledger.recordAccess = async () => {
@@ -194,7 +192,7 @@ describe("Referti firmati: attacchi", () => {
   it("titolo o testo mancanti o troppo lunghi vengono rifiutati", async () => {
     const doctor = await user("dr.lungo", "doctor");
     const patient = await user("paz.lungo", "patient");
-    ledger.grantConsent(patient.address, doctor.address, Purpose.Care);
+    await signConsent(store, ledger, vault, patient, doctor.username, "care");
     for (const content of [
       { title: "", body: "x" },
       { title: "x", body: "" },

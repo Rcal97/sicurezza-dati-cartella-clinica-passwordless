@@ -2,7 +2,6 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { Wallet } from "ethers";
 
 // Campagne d'attacco ripetute contro il backend vero (archivi in memoria).
 // Per ogni scenario si misura, prova dopo prova, se l'attacco riesce e se l'operazione
@@ -20,7 +19,8 @@ const { createApp } = await import(APP + "src/app.ts");
 const { MemoryStore } = await import(APP + "src/models/memoryStore.ts");
 const { MemoryLedger } = await import(APP + "src/models/memoryLedger.ts");
 const { Vault } = await import(APP + "src/crypto/vault.ts");
-const { invite } = await import(APP + "test/helpers.ts");
+const { invite, makeProfile, signConsent } = await import(APP + "test/helpers.ts");
+const { staffAnchor } = await import(APP + "src/crypto/consent.ts");
 const { SoftAuthenticator } = await import(APP + "test/softAuthenticator.ts");
 const { config } = await import(APP + "src/config.ts");
 
@@ -59,14 +59,16 @@ async function login(username: string, auth: any, origin = config.origin) {
 
 async function utente(role: "doctor" | "patient") {
   const username = nuovo(role === "doctor" ? "dr" : "paz");
-  const address = Wallet.createRandom().address;
-  await store.setProfile(username, { role, address });
+  const wallet = await makeProfile(store, username, role);
   const auth = await registra(username);
   const { cookie } = await login(username, auth);
-  return { username, address, auth, cookie };
+  return { username, wallet, auth, cookie };
 }
 
-const consenso = (p: { address: string }, d: { address: string }, finalita = 0) => ledger.grantConsent(p.address, d.address, finalita);
+// Consenso firmato dal paziente con il suo wallet e registrato come farebbe il backend.
+const FINALITA = ["care", "research", "administration"];
+const consenso = (p: { username: string; wallet: unknown }, d: { username: string }, finalita = 0, azione = "grant") =>
+  signConsent(store, ledger, vault, p, d.username, FINALITA[finalita], azione);
 const apri = (d: { cookie: string }, p: { username: string }, purpose = "care") =>
   call("/records/access", { patient: p.username, purpose }, d.cookie);
 
@@ -166,7 +168,7 @@ const scenari: Scenario[] = [
     prova: async () => {
       const d = await utente("doctor");
       const p = await utente("patient");
-      consenso(p, d, 0);
+      await consenso(p, d, 0);
       return [(await apri(d, p, "research")).status === 200, (await apri(d, p, "care")).status === 200];
     },
   },
@@ -176,9 +178,9 @@ const scenari: Scenario[] = [
     prova: async () => {
       const d = await utente("doctor");
       const p = await utente("patient");
-      consenso(p, d, 0);
+      await consenso(p, d, 0);
       const legit = (await apri(d, p)).status === 200;
-      ledger.revokeConsent(p.address, d.address, 0);
+      await consenso(p, d, 0, "revoke");
       return [(await apri(d, p)).status === 200, legit];
     },
   },
@@ -189,7 +191,7 @@ const scenari: Scenario[] = [
       const d = await utente("doctor");
       const p1 = await utente("patient");
       const p2 = await utente("patient");
-      consenso(p2, d, 0);
+      await consenso(p2, d, 0);
       return [(await apri(p1, p2)).status === 200, (await apri(d, p2)).status === 200];
     },
   },
@@ -200,7 +202,7 @@ const scenari: Scenario[] = [
       const d = await utente("doctor");
       const er = await utente("doctor");
       const p = await utente("patient");
-      ledger.emergencyStaff.add(er.address.toLowerCase());
+      ledger.emergencyStaff.add(staffAnchor(vault, er.username));
       const reason = "Paziente incosciente in pronto soccorso";
       const attack = (await call("/records/emergency", { patient: p.username, reason }, d.cookie)).status === 200;
       const legit = (await call("/records/emergency", { patient: p.username, reason }, er.cookie)).status === 200;
@@ -214,7 +216,7 @@ const scenari: Scenario[] = [
       const d = await utente("doctor");
       const other = await utente("doctor");
       const p = await utente("patient");
-      consenso(p, d, 0);
+      await consenso(p, d, 0);
       return [(await firma(d, p.username, other.auth)).status === 200, (await firma(d, p.username)).status === 200];
     },
   },
@@ -225,7 +227,7 @@ const scenari: Scenario[] = [
       const d = await utente("doctor");
       const other = await utente("doctor");
       const p = await utente("patient");
-      consenso(p, d, 0);
+      await consenso(p, d, 0);
       const o = await call("/records/documents/options", { patient: p.username, title: "Visita", body: "Ok." }, d.cookie);
       const response = d.auth.authenticate(o.body, config.origin);
       const attack = (await call("/records/documents/verify", { response }, other.cookie)).status === 200;
@@ -239,7 +241,7 @@ const scenari: Scenario[] = [
     prova: async () => {
       const d = await utente("doctor");
       const p = await utente("patient");
-      consenso(p, d, 0);
+      await consenso(p, d, 0);
       await firma(d, p.username);
       await firma(d, p.username);
       const docs = store.documents.filter((x: any) => x.patient === p.username);
