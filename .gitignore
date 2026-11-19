@@ -46,3 +46,13 @@ relazione/*.toc
 relazione/*.synctex.gz
 relazione/*.fls
 relazione/*.fdb_latexmk
+
+# Presentazione: file temporanei di LaTeX e PDF generato (si versionano solo i sorgenti)
+presentazione/*.pdf
+presentazione/*.aux
+presentazione/*.log
+presentazione/*.nav
+presentazione/*.out
+presentazione/*.snm
+presentazione/*.toc
+presentazione/*.synctex.gz
