@@ -9,6 +9,8 @@ import {
 import { api } from "./api";
 import PannelloCartella from "./Cartella";
 import PannelloConsensi from "./Consensi";
+import Informativa from "./Informativa";
+import MieiReferti from "./MieiReferti";
 
 type Messaggio = { tipo: "ok" | "errore"; testo: string } | null;
 type Passkey = { id: string; transports: string[] };
@@ -154,6 +156,7 @@ export default function App() {
             Esci da tutti i dispositivi
           </button>
           {profilo?.role === "doctor" && <PannelloCartella />}
+          {profilo?.role === "patient" && <MieiReferti />}
           {profilo?.role === "patient" && profilo.address && <PannelloConsensi indirizzo={profilo.address} />}
           {profilo && profilo.role === null && (
             <p className="nota">Il tuo profilo non ha ancora un ruolo: lo assegna la struttura dopo l'identificazione.</p>
@@ -189,6 +192,8 @@ export default function App() {
         </>
       )}
       {messaggio && <p className={messaggio.tipo}>{messaggio.testo}</p>}
+      {!utente && <Informativa />}
+      <p className="nota piede">Questo servizio usa solo un cookie tecnico di sessione: nessun cookie di profilazione.</p>
     </main>
   );
 }

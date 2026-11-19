@@ -19,6 +19,38 @@ type Voce =
     }
   | { at: string; altered: true; entryId: string | null; recordHash: string };
 
+// Voci del registro degli accessi alla cartella di un paziente, decifrate e controllate.
+export async function patientAccessLog(store: Store, vault: Vault, username: string): Promise<Voce[]> {
+  const voci: Voce[] = [];
+  for (const entry of await store.listAccessLogOf(vault.indexTag(username))) {
+    let d: AccessDetails;
+    try {
+      d = openAccessLog(vault, entry);
+    } catch {
+      voci.push({ at: entry.createdAt, altered: true, entryId: entry.entryId, recordHash: entry.recordHash });
+      continue;
+    }
+    // L'etichetta serve solo a cercare: fa fede il paziente dentro i dettagli cifrati.
+    // Una voce spostata su un altro paziente non ne rivela il contenuto.
+    if (d.patient !== username) {
+      voci.push({ at: entry.createdAt, altered: true, entryId: entry.entryId, recordHash: entry.recordHash });
+      continue;
+    }
+    voci.push({
+      at: d.at,
+      requester: d.requester,
+      kind: d.kind,
+      ...(d.kind === "ordinary" ? { outcome: d.outcome, purpose: d.purpose } : {}),
+      ...(d.kind === "emergency" || d.kind === "emergency-rejected" ? { reason: d.reason } : {}),
+      ...(d.kind === "document-signed" ? { documentId: d.documentId } : {}),
+      entryId: entry.entryId,
+      recordHash: entry.recordHash,
+    });
+  }
+  // Dal più recente al più vecchio.
+  return voci.reverse();
+}
+
 // Registro degli accessi alla propria cartella (art. 15 GDPR): chi, quando, perché e con quale esito.
 export function accessLogController(store: Store, vault: Vault) {
   return {
@@ -29,34 +61,7 @@ export function accessLogController(store: Store, vault: Vault) {
         res.status(403).json({ error: "solo il paziente può consultare il registro della propria cartella" });
         return;
       }
-      const voci: Voce[] = [];
-      for (const entry of await store.listAccessLogOf(vault.indexTag(username))) {
-        let d: AccessDetails;
-        try {
-          d = openAccessLog(vault, entry);
-        } catch {
-          voci.push({ at: entry.createdAt, altered: true, entryId: entry.entryId, recordHash: entry.recordHash });
-          continue;
-        }
-        // L'etichetta serve solo a cercare: fa fede il paziente dentro i dettagli cifrati.
-        // Una voce spostata su un altro paziente non ne rivela il contenuto.
-        if (d.patient !== username) {
-          voci.push({ at: entry.createdAt, altered: true, entryId: entry.entryId, recordHash: entry.recordHash });
-          continue;
-        }
-        voci.push({
-          at: d.at,
-          requester: d.requester,
-          kind: d.kind,
-          ...(d.kind === "ordinary" ? { outcome: d.outcome, purpose: d.purpose } : {}),
-          ...(d.kind === "emergency" || d.kind === "emergency-rejected" ? { reason: d.reason } : {}),
-          ...(d.kind === "document-signed" ? { documentId: d.documentId } : {}),
-          entryId: entry.entryId,
-          recordHash: entry.recordHash,
-        });
-      }
-      // Dal più recente al più vecchio.
-      res.json(voci.reverse());
+      res.json(await patientAccessLog(store, vault, username));
     },
   };
 }

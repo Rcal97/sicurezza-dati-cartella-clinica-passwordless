@@ -3,9 +3,10 @@ import { Contract, EventLog, type BrowserProvider } from "ethers";
 import { api } from "./api";
 
 // Eventi del registro di audit con cui il paziente verifica le voci da sé, con il proprio wallet.
+// Non contengono dati personali: numero della voce, ancora del consenso o del medico, impronte.
 const ABI_AUDIT = [
-  "event AccessRecorded(uint256 indexed entryId, address indexed patient, address indexed accessor, uint8 purpose, uint8 outcome, bytes32 recordHash)",
-  "event EmergencyAccess(uint256 indexed entryId, address indexed patient, address indexed accessor, bytes32 reasonHash, bytes32 recordHash)",
+  "event AccessRecorded(uint256 indexed entryId, bytes32 indexed consentId, uint8 outcome, bytes32 recordHash)",
+  "event EmergencyAccess(uint256 indexed entryId, bytes32 indexed staffId, bytes32 reasonHash, bytes32 recordHash)",
 ];
 const FINALITA: Record<string, string> = { care: "cura", research: "ricerca", administration: "amministrazione" };
 
@@ -40,12 +41,14 @@ function descrivi(v: Voce): string {
 }
 
 // Chi ha consultato la cartella del paziente, quando, perché e con quale esito (art. 15 GDPR).
-// Il backend fornisce le voci; il confronto con la catena lo fa il browser del paziente,
-// così un backend compromesso non può presentare una storia diversa da quella registrata.
+// Il backend fornisce le voci; il confronto con la catena lo fa il browser del paziente:
+// - ogni voce deve avere sulla catena la stessa impronta (integrità);
+// - per le ancore dei consensi del paziente, già verificate con le sue ricevute firmate, non
+//   devono esserci sulla catena accessi che l'elenco non mostra (completezza).
 export default function RegistroAccessi(props: {
-  indirizzo: string;
   auditLog: string | null;
   provider: BrowserProvider | null;
+  consentIds: string[];
 }) {
   const [voci, setVoci] = useState<Voce[] | null>(null);
   const [esiti, setEsiti] = useState<Record<string, Esito>>({});
@@ -64,14 +67,22 @@ export default function RegistroAccessi(props: {
     setErrore(null);
     try {
       const audit = new Contract(props.auditLog, ABI_AUDIT, props.provider);
-      const eventi = [
-        ...(await audit.queryFilter(audit.filters.AccessRecorded(null, props.indirizzo))),
-        ...(await audit.queryFilter(audit.filters.EmergencyAccess(null, props.indirizzo))),
-      ];
+      const numeri = voci.filter((v) => v.entryId !== null).map((v) => BigInt(v.entryId!));
+      // Più valori nello stesso argomento del filtro valgono come "oppure".
+      const eventi =
+        numeri.length === 0
+          ? []
+          : [
+              ...(await audit.queryFilter(audit.filters.AccessRecorded(numeri))),
+              ...(await audit.queryFilter(audit.filters.EmergencyAccess(numeri))),
+            ];
       const sullaCatena = new Map<string, string>();
       for (const ev of eventi) {
         if (ev instanceof EventLog) sullaCatena.set(ev.args.entryId.toString(), String(ev.args.recordHash).toLowerCase());
       }
+      const delPaziente =
+        props.consentIds.length === 0 ? [] : await audit.queryFilter(audit.filters.AccessRecorded(null, props.consentIds));
+      const registrati = delPaziente.filter((ev) => ev instanceof EventLog).map((ev) => (ev as EventLog).args.entryId.toString());
       const nuovi: Record<string, Esito> = {};
       for (const v of voci) {
         if (v.entryId === null) continue;
@@ -80,7 +91,7 @@ export default function RegistroAccessi(props: {
       }
       setEsiti(nuovi);
       const mostrate = new Set(voci.map((v) => v.entryId));
-      setMancanti([...sullaCatena.keys()].filter((id) => !mostrate.has(id)).sort((a, b) => Number(a) - Number(b)));
+      setMancanti(props.consentIds.length === 0 ? null : registrati.filter((id) => !mostrate.has(id)).sort((a, b) => Number(a) - Number(b)));
     } catch (e) {
       setErrore((e as Error).message);
     } finally {
@@ -118,10 +129,13 @@ export default function RegistroAccessi(props: {
             Verifica sulla blockchain
           </button>
           {!props.provider && <span className="nota">Collega il wallet per verificare.</span>}
+          {props.provider && props.consentIds.length === 0 && (
+            <span className="nota">Verifica prima i consensi: servono per controllare che non manchino voci.</span>
+          )}
         </div>
       )}
       {mancanti !== null && mancanti.length === 0 && (
-        <p className="ok">Tutti gli accessi registrati sulla blockchain per il tuo indirizzo sono in questo elenco.</p>
+        <p className="ok">Tutti gli accessi registrati sulla blockchain per i tuoi consensi verificati sono in questo elenco.</p>
       )}
       {mancanti !== null && mancanti.length > 0 && (
         <p className="errore">

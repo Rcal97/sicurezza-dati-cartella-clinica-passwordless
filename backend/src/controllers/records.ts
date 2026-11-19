@@ -44,35 +44,38 @@ export async function parties(store: Store, req: Request, res: Response): Promis
   return { requester, doctor, patientName, patient };
 }
 
+// Referti decifrati per la consegna: lo fanno sia l'accesso del medico, dopo la registrazione
+// sulla catena, sia il paziente che consulta la propria cartella. AES-GCM rileva ogni
+// alterazione; la firma si verifica a ogni consegna e se ne restituiscono autore, data ed esito.
+export async function deliverDocuments(store: Store, vault: Vault, patient: string) {
+  return Promise.all(
+    (await store.listDocuments(patient)).map(async (doc) => {
+      let content;
+      try {
+        content = openDocument(vault, doc);
+      } catch {
+        console.error(`Referto ${doc.id} alterato o non decifrabile`);
+        return { id: doc.id, createdAt: doc.createdAt, error: "integrità non verificata" };
+      }
+      const sig = content.signature;
+      const signature = sig
+        ? {
+            author: sig.author,
+            signedAt: sig.signedAt,
+            valid: await verifyDocumentSignature(patient, content.title, content.body, sig),
+          }
+        : null;
+      return { id: doc.id, createdAt: doc.createdAt, title: content.title, body: content.body, signature };
+    }),
+  );
+}
+
 // Controller dell'accesso alle cartelle cliniche.
 export function recordsController(store: Store, ledger: Ledger, vault: Vault) {
   // Cartella consegnata al medico autorizzato: i referti sono decifrati solo ora,
   // in memoria, e solo dopo che l'accesso è stato registrato sulla catena.
   async function record(patient: string, entryId: bigint) {
-    const documents = await Promise.all(
-      (await store.listDocuments(patient)).map(async (doc) => {
-        let content;
-        try {
-          content = openDocument(vault, doc);
-        } catch {
-          // AES-GCM ha rilevato un'alterazione: il documento non viene consegnato.
-          console.error(`Referto ${doc.id} alterato o non decifrabile`);
-          return { id: doc.id, createdAt: doc.createdAt, error: "integrità non verificata" };
-        }
-        // La firma si verifica a ogni consegna; al medico arrivano autore, data ed esito,
-        // non i dati grezzi della firma.
-        const sig = content.signature;
-        const signature = sig
-          ? {
-              author: sig.author,
-              signedAt: sig.signedAt,
-              valid: await verifyDocumentSignature(patient, content.title, content.body, sig),
-            }
-          : null;
-        return { id: doc.id, createdAt: doc.createdAt, title: content.title, body: content.body, signature };
-      }),
-    );
-    return { patient, auditEntry: entryId.toString(), documents };
+    return { patient, auditEntry: entryId.toString(), documents: await deliverDocuments(store, vault, patient) };
   }
 
   return {

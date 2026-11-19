@@ -2,6 +2,7 @@ import { Router } from "express";
 import { rateLimit } from "../middleware/security.js";
 import { accessLogController } from "../controllers/accessLog.js";
 import { documentsController } from "../controllers/documents.js";
+import { patientController } from "../controllers/patient.js";
 import { recordsController } from "../controllers/records.js";
 import { requireSession } from "../middleware/session.js";
 import type { Vault } from "../crypto/vault.js";
@@ -26,5 +27,10 @@ export function recordsRoutes(store: Store, ledger: Ledger, vault: Vault, limits
 
   // Registro degli accessi alla propria cartella, consultabile dal paziente.
   router.get("/access-log", accessLogController(store, vault).mine);
+
+  // La propria cartella (art. 15) e l'esportazione dei propri dati (art. 20).
+  const patient = patientController(store, vault);
+  router.get("/mine", patient.documents);
+  router.get("/mine/export", patient.export);
   return router;
 }

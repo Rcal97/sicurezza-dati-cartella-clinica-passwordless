@@ -20,7 +20,7 @@ La relazione completa è nella cartella [`relazione/`](relazione/).
 | Cartella | Contenuto |
 | --- | --- |
 | `backend/` | Server Node.js 24 + TypeScript + Express 5: autenticazione FIDO2, sessioni, controllo degli accessi, cifratura e firma dei referti, audit |
-| `frontend/` | Interfaccia web React + Vite: passkey, cartelle, consensi con MetaMask, registro degli accessi verificabile sulla catena |
+| `frontend/` | Interfaccia web React + Vite: passkey, cartelle, consensi firmati con MetaMask, propri referti ed esportazione dei dati, informativa, registro degli accessi verificabile sulla catena |
 | `blockchain/` | Smart contract Solidity 0.8 (`ConsentRegistry`, `AuditLog`) con OpenZeppelin, test e pubblicazione con Hardhat |
 | `analisi/` | Script di misura e notebook Jupyter che rigenera le figure della valutazione |
 | `infra/` | Inizializzazione di MongoDB e script di supporto |
@@ -67,7 +67,7 @@ Si eseguono dalla cartella `backend` e simulano gli uffici che identificano le p
 
 | Gruppo | Comando | Test |
 | --- | --- | --- |
-| Backend, unitari | `npm test` in `backend` | 145 |
+| Backend, unitari | `npm test` in `backend` | 148 |
 | Backend su MongoDB reale | `npm run test:mongo` in `backend` | 21 |
 | Backend sulla blockchain locale | `npm run test:chain` in `backend` | 10 |
 | Smart contract | `npm test` in `blockchain` | 40 |
