@@ -5,7 +5,7 @@ import CartellaClinica from "../ignition/modules/CartellaClinica.js";
 const { ethers, ignition } = await network.create();
 
 describe("Deploy (Ignition)", function () {
-  it("collega l'audit al registro e dà al backend solo il ruolo RECORDER", async function () {
+  it("collega l'audit al registro e dà al backend solo i ruoli RECORDER e REGISTRAR", async function () {
     const [admin, backend] = await ethers.getSigners();
     const { consentRegistry, auditLog } = await ignition.deploy(CartellaClinica);
 
@@ -14,6 +14,8 @@ describe("Deploy (Ignition)", function () {
     expect(await auditLog.defaultAdmin()).to.equal(admin.address);
     expect(await consentRegistry.hasRole(await consentRegistry.PAUSER_ROLE(), admin.address)).to.equal(true);
     expect(await consentRegistry.hasRole(await consentRegistry.PAUSER_ROLE(), backend.address)).to.equal(false);
+    expect(await consentRegistry.hasRole(await consentRegistry.REGISTRAR_ROLE(), backend.address)).to.equal(true);
+    expect(await consentRegistry.hasRole(await consentRegistry.DEFAULT_ADMIN_ROLE(), backend.address)).to.equal(false);
 
     const recorder = await auditLog.RECORDER_ROLE();
     const adminRole = await auditLog.DEFAULT_ADMIN_ROLE();

@@ -3,132 +3,131 @@ import { network } from "hardhat";
 
 const { ethers } = await network.create();
 
-// Valori dell'enum Purpose del contratto
-const CARE = 0;
-const RESEARCH = 1;
+// Le ancore sono valori opachi di 32 byte (nel sistema: HMAC calcolati dal backend).
+const CARE = ethers.id("ancora: paziente, medico, cura");
+const RESEARCH = ethers.id("ancora: paziente, medico, ricerca");
+const RECEIPT = ethers.id("ricevuta firmata dal paziente");
 
 describe("ConsentRegistry", function () {
   async function deploy() {
-    const [owner, patient, doctor, stranger] = await ethers.getSigners();
+    const [owner, registrar, stranger] = await ethers.getSigners();
     const registry = await ethers.deployContract("ConsentRegistry", [owner.address]);
     await registry.connect(owner).grantRole(await registry.PAUSER_ROLE(), owner.address);
+    await registry.connect(owner).grantRole(await registry.REGISTRAR_ROLE(), registrar.address);
     const block = await ethers.provider.getBlock("latest");
     const now = block!.timestamp;
-    return { registry, owner, patient, doctor, stranger, now };
+    return { registry, owner, registrar, stranger, now, r: registry.connect(registrar) };
   }
 
   it("non c'è consenso di default", async function () {
-    const { registry, patient, doctor } = await deploy();
-    expect(await registry.isConsentValid(patient.address, doctor.address, CARE)).to.equal(false);
+    const { registry } = await deploy();
+    expect(await registry.isConsentValid(CARE)).to.equal(false);
   });
 
-  it("il paziente concede il consenso ed emette l'evento", async function () {
-    const { registry, patient, doctor, now } = await deploy();
+  it("registra il consenso ed emette l'evento con la sola ancora e l'impronta della ricevuta", async function () {
+    const { registry, r, now } = await deploy();
     const expiresAt = now + 3600;
 
-    await expect(registry.connect(patient).grantConsent(doctor.address, CARE, expiresAt))
+    await expect(r.grantConsent(CARE, expiresAt, RECEIPT))
       .to.emit(registry, "ConsentGranted")
-      .withArgs(patient.address, doctor.address, CARE, expiresAt);
+      .withArgs(CARE, expiresAt, RECEIPT);
 
-    expect(await registry.isConsentValid(patient.address, doctor.address, CARE)).to.equal(true);
+    expect(await registry.isConsentValid(CARE)).to.equal(true);
   });
 
-  it("il consenso per la cura non vale per la ricerca", async function () {
-    const { registry, patient, doctor, now } = await deploy();
-    await registry.connect(patient).grantConsent(doctor.address, CARE, now + 3600);
+  it("il consenso per un'ancora non vale per un'altra (es. ricerca invece di cura)", async function () {
+    const { registry, r, now } = await deploy();
+    await r.grantConsent(CARE, now + 3600, RECEIPT);
+    expect(await registry.isConsentValid(RESEARCH)).to.equal(false);
+  });
 
-    expect(await registry.isConsentValid(patient.address, doctor.address, RESEARCH)).to.equal(
-      false,
+  it("la revoca di un consenso lascia validi gli altri", async function () {
+    const { registry, r, now } = await deploy();
+    await r.grantConsent(CARE, now + 3600, RECEIPT);
+    await r.grantConsent(RESEARCH, now + 3600, RECEIPT);
+
+    await r.revokeConsent(RESEARCH, RECEIPT);
+
+    expect(await registry.isConsentValid(RESEARCH)).to.equal(false);
+    expect(await registry.isConsentValid(CARE)).to.equal(true);
+  });
+
+  it("solo chi ha il ruolo REGISTRAR può concedere o revocare", async function () {
+    const { registry, owner, stranger, r, now } = await deploy();
+    for (const who of [stranger, owner]) {
+      await expect(
+        registry.connect(who).grantConsent(CARE, now + 3600, RECEIPT),
+      ).to.be.revertedWithCustomError(registry, "AccessControlUnauthorizedAccount");
+    }
+    await r.grantConsent(CARE, now + 3600, RECEIPT);
+    await expect(registry.connect(stranger).revokeConsent(CARE, RECEIPT)).to.be.revertedWithCustomError(
+      registry,
+      "AccessControlUnauthorizedAccount",
+    );
+    expect(await registry.isConsentValid(CARE)).to.equal(true);
+  });
+
+  it("rifiuta un'ancora vuota", async function () {
+    const { registry, r, now } = await deploy();
+    await expect(r.grantConsent(ethers.ZeroHash, now + 3600, RECEIPT)).to.be.revertedWithCustomError(
+      registry,
+      "InvalidConsentId",
     );
   });
 
-  it("la revoca per una finalità lascia valide le altre", async function () {
-    const { registry, patient, doctor, now } = await deploy();
-    await registry.connect(patient).grantConsent(doctor.address, CARE, now + 3600);
-    await registry.connect(patient).grantConsent(doctor.address, RESEARCH, now + 3600);
-
-    await registry.connect(patient).revokeConsent(doctor.address, RESEARCH);
-
-    expect(await registry.isConsentValid(patient.address, doctor.address, RESEARCH)).to.equal(
-      false,
+  it("rifiuta concessioni e revoche senza l'impronta della ricevuta", async function () {
+    const { registry, r, now } = await deploy();
+    await expect(r.grantConsent(CARE, now + 3600, ethers.ZeroHash)).to.be.revertedWithCustomError(
+      registry,
+      "MissingReceipt",
     );
-    expect(await registry.isConsentValid(patient.address, doctor.address, CARE)).to.equal(true);
-  });
-
-  it("rifiuta una finalità che non esiste", async function () {
-    const { registry, patient, doctor, now } = await deploy();
-    await expect(registry.connect(patient).grantConsent(doctor.address, 3, now + 3600)).to.revert(
-      ethers,
-    );
+    await expect(r.revokeConsent(CARE, ethers.ZeroHash)).to.be.revertedWithCustomError(registry, "MissingReceipt");
   });
 
   it("rifiuta una scadenza già passata", async function () {
-    const { registry, patient, doctor, now } = await deploy();
-    await expect(
-      registry.connect(patient).grantConsent(doctor.address, CARE, now - 10),
-    ).to.be.revertedWithCustomError(registry, "InvalidExpiry");
+    const { registry, r, now } = await deploy();
+    await expect(r.grantConsent(CARE, now - 10, RECEIPT)).to.be.revertedWithCustomError(registry, "InvalidExpiry");
   });
 
   it("rifiuta una scadenza oltre la durata massima", async function () {
-    const { registry, patient, doctor, now } = await deploy();
+    const { registry, r, now } = await deploy();
     const max = await registry.MAX_DURATION();
-    await expect(
-      registry.connect(patient).grantConsent(doctor.address, CARE, BigInt(now) + max + 3600n),
-    ).to.be.revertedWithCustomError(registry, "InvalidExpiry");
-  });
-
-  it("rifiuta come destinatario l'indirizzo zero o se stessi", async function () {
-    const { registry, patient, now } = await deploy();
-    await expect(
-      registry.connect(patient).grantConsent(ethers.ZeroAddress, CARE, now + 3600),
-    ).to.be.revertedWithCustomError(registry, "InvalidGrantee");
-    await expect(
-      registry.connect(patient).grantConsent(patient.address, CARE, now + 3600),
-    ).to.be.revertedWithCustomError(registry, "InvalidGrantee");
+    await expect(r.grantConsent(CARE, BigInt(now) + max + 3600n, RECEIPT)).to.be.revertedWithCustomError(
+      registry,
+      "InvalidExpiry",
+    );
   });
 
   it("il consenso scade dopo la data indicata", async function () {
-    const { registry, patient, doctor, now } = await deploy();
-    await registry.connect(patient).grantConsent(doctor.address, CARE, now + 3600);
+    const { registry, r, now } = await deploy();
+    await r.grantConsent(CARE, now + 3600, RECEIPT);
 
     await ethers.provider.send("evm_increaseTime", [7200]);
     await ethers.provider.send("evm_mine", []);
 
-    expect(await registry.isConsentValid(patient.address, doctor.address, CARE)).to.equal(false);
+    expect(await registry.isConsentValid(CARE)).to.equal(false);
   });
 
-  it("il paziente revoca il consenso ed emette l'evento", async function () {
-    const { registry, patient, doctor, now } = await deploy();
-    await registry.connect(patient).grantConsent(doctor.address, CARE, now + 3600);
+  it("la revoca emette l'evento e annulla il consenso", async function () {
+    const { registry, r, now } = await deploy();
+    const revocation = ethers.id("ricevuta della revoca");
+    await r.grantConsent(CARE, now + 3600, RECEIPT);
 
-    await expect(registry.connect(patient).revokeConsent(doctor.address, CARE))
-      .to.emit(registry, "ConsentRevoked")
-      .withArgs(patient.address, doctor.address, CARE);
+    await expect(r.revokeConsent(CARE, revocation)).to.emit(registry, "ConsentRevoked").withArgs(CARE, revocation);
 
-    expect(await registry.isConsentValid(patient.address, doctor.address, CARE)).to.equal(false);
-  });
-
-  it("un estraneo non può revocare il consenso di un paziente", async function () {
-    const { registry, patient, doctor, stranger, now } = await deploy();
-    await registry.connect(patient).grantConsent(doctor.address, CARE, now + 3600);
-
-    await registry.connect(stranger).revokeConsent(doctor.address, CARE);
-
-    expect(await registry.isConsentValid(patient.address, doctor.address, CARE)).to.equal(true);
+    expect(await registry.isConsentValid(CARE)).to.equal(false);
   });
 
   it("in pausa non si concede, ma si può sempre revocare", async function () {
-    const { registry, owner, patient, doctor, now } = await deploy();
-    await registry.connect(patient).grantConsent(doctor.address, CARE, now + 3600);
+    const { registry, owner, r, now } = await deploy();
+    await r.grantConsent(CARE, now + 3600, RECEIPT);
 
     await registry.connect(owner).pause();
 
-    await expect(
-      registry.connect(patient).grantConsent(doctor.address, CARE, now + 7200),
-    ).to.be.revertedWithCustomError(registry, "EnforcedPause");
+    await expect(r.grantConsent(CARE, now + 7200, RECEIPT)).to.be.revertedWithCustomError(registry, "EnforcedPause");
 
-    await registry.connect(patient).revokeConsent(doctor.address, CARE);
-    expect(await registry.isConsentValid(patient.address, doctor.address, CARE)).to.equal(false);
+    await r.revokeConsent(CARE, RECEIPT);
+    expect(await registry.isConsentValid(CARE)).to.equal(false);
   });
 
   it("solo chi ha il ruolo PAUSER può mettere in pausa", async function () {
@@ -137,5 +136,16 @@ describe("ConsentRegistry", function () {
       registry,
       "AccessControlUnauthorizedAccount",
     );
+  });
+
+  it("le transazioni partono dal backend: nessun indirizzo di paziente o medico sulla catena", async function () {
+    const { registry, registrar, r, now } = await deploy();
+    const tx = await r.grantConsent(CARE, now + 3600, RECEIPT);
+    const receipt = (await tx.wait())!;
+    expect(receipt.from).to.equal(registrar.address);
+    // L'unico evento ha come argomenti solo valori opachi e la scadenza.
+    expect(receipt.logs).to.have.length(1);
+    const event = registry.interface.parseLog(receipt.logs[0]!)!;
+    expect(event.fragment.inputs.map((i) => i.type)).to.deep.equal(["bytes32", "uint64", "bytes32"]);
   });
 });

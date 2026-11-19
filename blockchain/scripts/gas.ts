@@ -5,7 +5,7 @@ import { network } from "hardhat";
 // Risultato: analisi/dati/gas.csv (una riga per transazione misurata).
 // Uso: npx hardhat run scripts/gas.ts
 const { ethers } = await network.create();
-const [admin, backend, ...others] = await ethers.getSigners();
+const [admin, backend] = await ethers.getSigners();
 const rows: string[] = ["operazione,variante,indice,gas"];
 const record = (op: string, variant: string, i: number, gas: bigint) => rows.push(`${op},${variant},${i},${gas}`);
 const gasOf = async (tx: { wait(): Promise<{ gasUsed: bigint } | null> }) => (await tx.wait())!.gasUsed;
@@ -16,34 +16,35 @@ record("deploy", "ConsentRegistry", 0, (await registry.deploymentTransaction()!.
 const audit = await ethers.deployContract("AuditLog", [admin.address, await registry.getAddress()]);
 record("deploy", "AuditLog", 0, (await audit.deploymentTransaction()!.wait())!.gasUsed);
 record("ruoli", "grantRole RECORDER", 0, await gasOf(await audit.grantRole(await audit.RECORDER_ROLE(), backend.address)));
+record("ruoli", "grantRole REGISTRAR", 0, await gasOf(await registry.grantRole(await registry.REGISTRAR_ROLE(), backend.address)));
 record("ruoli", "grantRole PAUSER", 0, await gasOf(await registry.grantRole(await registry.PAUSER_ROLE(), admin.address)));
 
 const now = async () => (await ethers.provider.getBlock("latest"))!.timestamp;
-const CARE = 0;
-const RESEARCH = 1;
-const doctor = others[0]!;
-const erDoctor = others[1]!;
-record("ruoli", "grantRole EMERGENCY", 0, await gasOf(await audit.grantRole(await audit.EMERGENCY_ROLE(), erDoctor.address)));
+// Le ancore sono valori opachi di 32 byte: qui bastano valori casuali.
+const anchor = () => ethers.hexlify(ethers.randomBytes(32));
+const erDoctor = anchor();
+record("ruoli", "setEmergencyStaff", 0, await gasOf(await audit.setEmergencyStaff(erDoctor, true)));
 
 // Molti pazienti diversi: il costo di ogni operazione non deve crescere con il numero
 // di pazienti o di voci già registrate (nessun ciclo su dati non limitati).
 const PATIENTS = 150;
-const hash = ethers.id("dettagli");
+const r = registry.connect(backend);
+const a = audit.connect(backend);
 for (let i = 0; i < PATIENTS; i++) {
-  const patient = ethers.Wallet.createRandom().connect(ethers.provider);
-  await (await admin.sendTransaction({ to: patient.address, value: ethers.parseEther("1") })).wait();
-  const p = registry.connect(patient);
+  const care = anchor();
+  const research = anchor();
+  const receipt = anchor();
+  const hash = anchor();
 
-  record("grantConsent", "prima concessione", i, await gasOf(await p.grantConsent(doctor.address, CARE, (await now()) + 86400)));
-  record("grantConsent", "rinnovo (stessa finalità)", i, await gasOf(await p.grantConsent(doctor.address, CARE, (await now()) + 2 * 86400)));
-  record("grantConsent", "seconda finalità", i, await gasOf(await p.grantConsent(doctor.address, RESEARCH, (await now()) + 86400)));
+  record("grantConsent", "prima concessione", i, await gasOf(await r.grantConsent(care, (await now()) + 86400, receipt)));
+  record("grantConsent", "rinnovo (stessa finalità)", i, await gasOf(await r.grantConsent(care, (await now()) + 2 * 86400, receipt)));
+  record("grantConsent", "seconda finalità", i, await gasOf(await r.grantConsent(research, (await now()) + 86400, receipt)));
 
-  const a = audit.connect(backend);
-  record("recordAccess", "concesso", i, await gasOf(await a.recordAccess(patient.address, doctor.address, CARE, 1, hash)));
-  record("recordAccess", "negato", i, await gasOf(await a.recordAccess(patient.address, others[2]!.address, CARE, 0, hash)));
-  record("recordEmergencyAccess", "d'emergenza", i, await gasOf(await a.recordEmergencyAccess(patient.address, erDoctor.address, hash, hash)));
+  record("recordAccess", "concesso", i, await gasOf(await a.recordAccess(care, 1, hash)));
+  record("recordAccess", "negato", i, await gasOf(await a.recordAccess(anchor(), 0, hash)));
+  record("recordEmergencyAccess", "d'emergenza", i, await gasOf(await a.recordEmergencyAccess(erDoctor, hash, hash)));
 
-  record("revokeConsent", "revoca", i, await gasOf(await p.revokeConsent(doctor.address, RESEARCH)));
+  record("revokeConsent", "revoca", i, await gasOf(await r.revokeConsent(research, receipt)));
 }
 
 const out = new URL("../../analisi/dati/gas.csv", import.meta.url);
