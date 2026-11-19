@@ -51,6 +51,8 @@ export default function RegistroAccessi(props: {
   consentIds: string[];
 }) {
   const [voci, setVoci] = useState<Voce[] | null>(null);
+  // Esito per voce, indicizzato dall'impronta: due voci con lo stesso numero (per esempio una
+  // registrata su una rete di prova poi azzerata) non devono condividere il risultato.
   const [esiti, setEsiti] = useState<Record<string, Esito>>({});
   // Voci presenti sulla catena ma non mostrate dal backend: un backend compromesso potrebbe nasconderle.
   const [mancanti, setMancanti] = useState<string[] | null>(null);
@@ -87,7 +89,7 @@ export default function RegistroAccessi(props: {
       for (const v of voci) {
         if (v.entryId === null) continue;
         const hash = sullaCatena.get(v.entryId);
-        nuovi[v.entryId] = hash === undefined ? "assente" : hash === v.recordHash.toLowerCase() ? "ok" : "diversa";
+        nuovi[v.recordHash] = hash === undefined ? "assente" : hash === v.recordHash.toLowerCase() ? "ok" : "diversa";
       }
       setEsiti(nuovi);
       const mostrate = new Set(voci.map((v) => v.entryId));
@@ -113,11 +115,11 @@ export default function RegistroAccessi(props: {
             <span className="nota">
               {v.entryId === null ? "non registrato sulla catena" : `voce on-chain n. ${v.entryId}`}
             </span>
-            {v.entryId !== null && esiti[v.entryId] === "ok" && <span className="ok"> — verificata sulla blockchain</span>}
-            {v.entryId !== null && esiti[v.entryId] === "diversa" && (
+            {v.entryId !== null && esiti[v.recordHash] === "ok" && <span className="ok"> — verificata sulla blockchain</span>}
+            {v.entryId !== null && esiti[v.recordHash] === "diversa" && (
               <span className="errore"> — NON corrisponde a quanto registrato sulla blockchain</span>
             )}
-            {v.entryId !== null && esiti[v.entryId] === "assente" && (
+            {v.entryId !== null && esiti[v.recordHash] === "assente" && (
               <span className="errore"> — voce non trovata sulla blockchain</span>
             )}
           </li>
