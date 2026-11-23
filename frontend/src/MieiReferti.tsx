@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
-
-type Firma = { author: string; signedAt: string; valid: boolean } | null;
-type Referto = { id: string; createdAt: string; title?: string; body?: string; signature?: Firma; error?: string };
-
-const data = (iso: string) => new Date(iso).toLocaleString("it-IT");
+import { Documento, type Referto } from "./Documento";
 
 // La propria cartella (art. 15 GDPR) e l'esportazione dei propri dati in JSON (art. 20).
 // Le correzioni avvengono per integrazione: un nuovo referto firmato, senza cancellare i precedenti.
@@ -20,7 +16,7 @@ export default function MieiReferti() {
     setErrore(null);
     try {
       const res = await fetch("/records/mine/export");
-      if (!res.ok) throw new Error(`Errore ${res.status}`);
+      if (!res.ok) throw new Error(`Esportazione non riuscita (errore ${res.status}).`);
       const url = URL.createObjectURL(await res.blob());
       const a = document.createElement("a");
       a.href = url;
@@ -33,42 +29,24 @@ export default function MieiReferti() {
   }
 
   return (
-    <section>
-      <h2>I miei referti</h2>
-      {referti === null && !errore && <p className="nota">Caricamento…</p>}
-      {referti?.length === 0 && <p className="nota">Nessun referto.</p>}
-      <ul className="referti">
-        {referti?.map((d) => (
-          <li key={d.id}>
-            {d.error ? (
-              <span className="errore">Referto del {data(d.createdAt)}: {d.error}</span>
-            ) : (
-              <>
-                <strong>{d.title}</strong> <span className="nota">{data(d.createdAt)}</span>
-                <p>{d.body}</p>
-                {d.signature ? (
-                  d.signature.valid ? (
-                    <span className="ok">Firmato da {d.signature.author} il {data(d.signature.signedAt)}</span>
-                  ) : (
-                    <span className="errore">FIRMA NON VALIDA</span>
-                  )
-                ) : (
-                  <span className="nota">Non firmato (caricato dal laboratorio)</span>
-                )}
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
-      <div className="azioni">
+    <section aria-labelledby="titolo-referti">
+      <div className="testata-sezione">
+        <h2 id="titolo-referti">I miei referti</h2>
         <button className="secondario" onClick={esporta}>
-          Scarica tutti i miei dati (JSON)
+          Scarica tutti i miei dati
         </button>
       </div>
       <p className="nota">
-        Il file contiene referti, ricevute firmate dei consensi e registro degli accessi. Per correggere un dato rivolgiti
-        al medico: la rettifica avviene con un nuovo referto, senza cancellare quelli precedenti.
+        Il file scaricato (JSON) contiene referti, ricevute firmate dei consensi e registro degli accessi. Per correggere un
+        dato rivolgiti al medico: la rettifica si fa con un nuovo referto, senza cancellare i precedenti.
       </p>
+      {referti === null && !errore && <p className="nota">Caricamento dei referti…</p>}
+      {referti?.length === 0 && <p className="vuoto">La tua cartella non contiene ancora referti.</p>}
+      <div className="pila-referti">
+        {referti?.map((d) => (
+          <Documento key={d.id} referto={d} />
+        ))}
+      </div>
       {errore && <p className="errore">{errore}</p>}
     </section>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Contract, EventLog, type BrowserProvider } from "ethers";
 import { api } from "./api";
+import { Timbro } from "./Documento";
 
 // Eventi del registro di audit con cui il paziente verifica le voci da sé, con il proprio wallet.
 // Non contengono dati personali: numero della voce, ancora del consenso o del medico, impronte.
@@ -22,6 +23,13 @@ type Voce = {
   reason?: string;
 };
 type Esito = "ok" | "diversa" | "assente";
+
+// Tipo di voce, per il colore del segno a margine del registro.
+function gravita(v: Voce): "normale" | "negato" | "emergenza" {
+  if (v.altered || (v.kind === "ordinary" && v.outcome === "denied") || v.kind === "emergency-rejected") return "negato";
+  if (v.kind === "emergency") return "emergenza";
+  return "normale";
+}
 
 function descrivi(v: Voce): string {
   if (v.altered) return "Voce alterata o non leggibile: segnalala alla struttura.";
@@ -49,6 +57,7 @@ export default function RegistroAccessi(props: {
   auditLog: string | null;
   provider: BrowserProvider | null;
   consentIds: string[];
+  onVerificaConsensi: (() => void) | null;
 }) {
   const [voci, setVoci] = useState<Voce[] | null>(null);
   // Esito per voce, indicizzato dall'impronta: due voci con lo stesso numero (per esempio una
@@ -101,51 +110,67 @@ export default function RegistroAccessi(props: {
     }
   }
 
+  const quando = (iso: string) =>
+    new Date(iso).toLocaleString("it-IT", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
   return (
-    <>
-      <h2>Chi ha consultato la mia cartella</h2>
-      {voci === null && !errore && <p className="nota">Caricamento…</p>}
-      {voci?.length === 0 && <p className="nota">Nessun accesso registrato.</p>}
-      <ul className="referti">
-        {voci?.map((v) => (
-          <li key={v.recordHash} className="accesso">
-            <span className="nota">{new Date(v.at).toLocaleString("it-IT")}</span>{" "}
-            {v.requester && <strong>{v.requester}</strong>} {descrivi(v)}
-            <br />
-            <span className="nota">
-              {v.entryId === null ? "non registrato sulla catena" : `voce on-chain n. ${v.entryId}`}
-            </span>
-            {v.entryId !== null && esiti[v.recordHash] === "ok" && <span className="ok"> — verificata sulla blockchain</span>}
-            {v.entryId !== null && esiti[v.recordHash] === "diversa" && (
-              <span className="errore"> — NON corrisponde a quanto registrato sulla blockchain</span>
-            )}
-            {v.entryId !== null && esiti[v.recordHash] === "assente" && (
-              <span className="errore"> — voce non trovata sulla blockchain</span>
-            )}
-          </li>
-        ))}
-      </ul>
-      {voci && voci.length > 0 && (
-        <div className="azioni">
+    <section aria-labelledby="titolo-accessi">
+      <div className="testata-sezione">
+        <h2 id="titolo-accessi">Chi ha consultato la mia cartella</h2>
+        {voci && voci.length > 0 && props.consentIds.length > 0 && (
           <button className="secondario" onClick={verifica} disabled={inCorso || !props.provider}>
             Verifica sulla blockchain
           </button>
-          {!props.provider && <span className="nota">Collega il wallet per verificare.</span>}
-          {props.provider && props.consentIds.length === 0 && (
-            <span className="nota">Verifica prima i consensi: servono per controllare che non manchino voci.</span>
-          )}
-        </div>
-      )}
+        )}
+        {voci && voci.length > 0 && props.consentIds.length === 0 && props.onVerificaConsensi && (
+          <button className="secondario" onClick={props.onVerificaConsensi}>
+            Verifica i consensi, poi gli accessi
+          </button>
+        )}
+      </div>
+      <p className="nota">
+        Ogni voce ha un'impronta registrata sulla blockchain: la verifica confronta le due copie dal tuo browser, senza fidarsi del
+        server.
+      </p>
       {mancanti !== null && mancanti.length === 0 && (
-        <p className="ok">Tutti gli accessi registrati sulla blockchain per i tuoi consensi verificati sono in questo elenco.</p>
+        <p className="ok">Sulla blockchain non ci sono accessi ai tuoi consensi che questo registro non mostri.</p>
       )}
       {mancanti !== null && mancanti.length > 0 && (
         <p className="errore">
-          Sulla blockchain ci sono accessi alla tua cartella che questo elenco non mostra (voci n. {mancanti.join(", ")}):
+          Sulla blockchain ci sono accessi alla tua cartella che questo registro non mostra (voci n. {mancanti.join(", ")}):
           segnalalo alla struttura.
         </p>
       )}
+      {voci === null && !errore && <p className="nota">Caricamento del registro…</p>}
+      {voci?.length === 0 && <p className="vuoto">Nessuno ha ancora consultato la tua cartella.</p>}
+      {voci && voci.length > 0 && (
+        <table className="registro">
+          <thead>
+            <tr>
+              <th scope="col">Data e ora</th>
+              <th scope="col">Chi e che cosa</th>
+              <th scope="col">Blockchain</th>
+            </tr>
+          </thead>
+          <tbody>
+            {voci.map((v) => (
+              <tr key={v.recordHash} className={`voce-${gravita(v)}`}>
+                <td className="registro-data">{quando(v.at)}</td>
+                <td>
+                  {v.requester && <strong>{v.requester}</strong>} {descrivi(v)}
+                </td>
+                <td className="registro-catena">
+                  <span className="nota">{v.entryId === null ? "non registrata" : `voce n. ${v.entryId}`}</span>
+                  {v.entryId !== null && esiti[v.recordHash] === "ok" && <Timbro tipo="catena" titolo="Confermata" />}
+                  {v.entryId !== null && esiti[v.recordHash] === "diversa" && <Timbro tipo="errore" titolo="Non corrisponde" />}
+                  {v.entryId !== null && esiti[v.recordHash] === "assente" && <Timbro tipo="errore" titolo="Non trovata" />}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       {errore && <p className="errore">{errore}</p>}
-    </>
+    </section>
   );
 }

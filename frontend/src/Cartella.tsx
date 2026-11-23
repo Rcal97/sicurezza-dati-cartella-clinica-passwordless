@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { startAuthentication, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 import { api } from "./api";
+import { Documento, type Referto } from "./Documento";
 
-type Firma = { author: string; signedAt: string; valid: boolean } | null;
-type Referto = { id: string; createdAt: string; title?: string; body?: string; signature?: Firma; error?: string };
 type Cartella = { patient: string; auditEntry: string; documents: Referto[] };
 
 const FINALITA = [
@@ -11,19 +10,6 @@ const FINALITA = [
   ["research", "Ricerca"],
   ["administration", "Amministrazione"],
 ] as const;
-
-const data = (iso: string) => new Date(iso).toLocaleString("it-IT");
-
-// Stato della firma di un referto, come lo verifica il backend a ogni consegna.
-function StatoFirma({ firma }: { firma?: Firma }) {
-  if (!firma) return <span className="nota">Non firmato (caricato dal laboratorio)</span>;
-  if (!firma.valid) return <span className="errore">FIRMA NON VALIDA: il contenuto non è quello firmato</span>;
-  return (
-    <span className="ok">
-      Firmato da {firma.author} il {data(firma.signedAt)}
-    </span>
-  );
-}
 
 // Pannello del medico: consultazione di una cartella e scrittura di un referto firmato.
 // Ogni decisione (ruolo, consenso, audit) spetta al backend e ai contratti.
@@ -74,57 +60,73 @@ export default function PannelloCartella() {
     });
 
   return (
-    <section>
-      <h2>Cartella di un paziente</h2>
-      <label htmlFor="paziente">Paziente</label>
-      <input id="paziente" value={paziente} onChange={(e) => setPaziente(e.target.value.trim().toLowerCase())} placeholder="paz.bianchi" />
-      <label htmlFor="finalita">Finalità dell'accesso</label>
-      <select id="finalita" value={finalita} onChange={(e) => setFinalita(e.target.value)}>
-        {FINALITA.map(([valore, etichetta]) => (
-          <option key={valore} value={valore}>
-            {etichetta}
-          </option>
-        ))}
-      </select>
-      <div className="azioni">
-        <button onClick={apri} disabled={inCorso || paziente.length < 3}>
-          Apri cartella
-        </button>
-      </div>
+    <>
+      <section aria-labelledby="titolo-consulta">
+        <h2 id="titolo-consulta">Consulta una cartella</h2>
+        <p className="nota">Ogni apertura è registrata sulla blockchain ed è visibile al paziente.</p>
+        <div className="riga-modulo">
+          <div className="campo">
+            <label htmlFor="paziente">Paziente</label>
+            <input
+              id="paziente"
+              value={paziente}
+              onChange={(e) => setPaziente(e.target.value.trim().toLowerCase())}
+              placeholder="mario.bianchi"
+            />
+          </div>
+          <div className="campo">
+            <label htmlFor="finalita">Finalità</label>
+            <select id="finalita" value={finalita} onChange={(e) => setFinalita(e.target.value)}>
+              {FINALITA.map(([valore, etichetta]) => (
+                <option key={valore} value={valore}>
+                  {etichetta}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button onClick={apri} disabled={inCorso || paziente.length < 3}>
+            Apri cartella
+          </button>
+        </div>
 
-      {cartella && (
-        <>
-          <p className="nota">Accesso registrato nell'audit (voce n. {cartella.auditEntry}).</p>
-          {cartella.documents.length === 0 && <p className="nota">Nessun referto.</p>}
-          <ul className="referti">
-            {cartella.documents.map((d) => (
-              <li key={d.id}>
-                {d.error ? (
-                  <span className="errore">Referto del {data(d.createdAt)}: {d.error}</span>
-                ) : (
-                  <>
-                    <strong>{d.title}</strong> <span className="nota">{data(d.createdAt)}</span>
-                    <p>{d.body}</p>
-                    <StatoFirma firma={d.signature} />
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-        </>
+        {cartella && (
+          <>
+            <p className="esito-accesso">
+              Cartella di <strong>{cartella.patient}</strong>: accesso registrato nell'audit, voce n. {cartella.auditEntry}.
+            </p>
+            {cartella.documents.length === 0 && <p className="vuoto">La cartella non contiene ancora referti.</p>}
+            <div className="pila-referti">
+              {cartella.documents.map((d) => (
+                <Documento key={d.id} referto={d} />
+              ))}
+            </div>
+          </>
+        )}
+      </section>
+
+      <section aria-labelledby="titolo-nuovo">
+        <h2 id="titolo-nuovo">Nuovo referto</h2>
+        <div className="foglio modulo">
+          <p className="nota">
+            Per <strong>{paziente || "il paziente indicato sopra"}</strong>. Serve un consenso valido per la cura; la passkey
+            firma il contenuto esatto del referto.
+          </p>
+          <label htmlFor="titolo">Titolo</label>
+          <input id="titolo" value={titolo} maxLength={200} onChange={(e) => setTitolo(e.target.value)} placeholder="Visita di controllo" />
+          <label htmlFor="testo">Testo</label>
+          <textarea id="testo" value={testo} maxLength={20000} rows={6} onChange={(e) => setTesto(e.target.value)} />
+          <div className="azioni">
+            <button onClick={firma} disabled={inCorso || paziente.length < 3 || !titolo.trim() || !testo.trim()}>
+              Firma con la passkey e salva
+            </button>
+          </div>
+        </div>
+      </section>
+      {messaggio && (
+        <p className={messaggio.tipo} role="status">
+          {messaggio.testo}
+        </p>
       )}
-
-      <h2>Nuovo referto</h2>
-      <label htmlFor="titolo">Titolo</label>
-      <input id="titolo" value={titolo} maxLength={200} onChange={(e) => setTitolo(e.target.value)} />
-      <label htmlFor="testo">Testo</label>
-      <textarea id="testo" value={testo} maxLength={20000} rows={5} onChange={(e) => setTesto(e.target.value)} />
-      <div className="azioni">
-        <button onClick={firma} disabled={inCorso || paziente.length < 3 || !titolo.trim() || !testo.trim()}>
-          Firma con la passkey e salva
-        </button>
-      </div>
-      {messaggio && <p className={messaggio.tipo}>{messaggio.testo}</p>}
-    </section>
+    </>
   );
 }
