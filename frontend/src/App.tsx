@@ -76,6 +76,15 @@ export default function App() {
     api.get<Profilo>("/directory/profile").then(setProfilo).catch(() => setProfilo(null));
   }, [utente]);
 
+  // All'uscita si azzera tutto lo stato legato all'utente: il profilo di chi è uscito
+  // non deve restare in memoria quando dallo stesso browser accede qualcun altro.
+  function chiudiSessione() {
+    setUtente(null);
+    setProfilo(null);
+    setPasskeys([]);
+    setScheda(null);
+  }
+
   async function esegui(azione: () => Promise<void>) {
     setInCorso(true);
     setMessaggio(null);
@@ -125,14 +134,14 @@ export default function App() {
   const esci = () =>
     esegui(async () => {
       await api.post("/session/logout");
-      setUtente(null);
+      chiudiSessione();
       setMessaggio({ tipo: "ok", testo: "Sei uscito." });
     });
 
   const esciOvunque = () =>
     esegui(async () => {
       await api.post("/session/logout-all");
-      setUtente(null);
+      chiudiSessione();
       setMessaggio({ tipo: "ok", testo: "Sei uscito da tutti i dispositivi." });
     });
 
@@ -141,7 +150,7 @@ export default function App() {
   const revoca = (id: string) =>
     esegui(async () => {
       await api.post("/session/passkeys/revoke", { id });
-      setUtente(null);
+      chiudiSessione();
       setMessaggio({ tipo: "ok", testo: "Passkey revocata. Accedi di nuovo con un dispositivo rimasto." });
     });
 
