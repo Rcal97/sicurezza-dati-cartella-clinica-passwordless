@@ -31,6 +31,7 @@ export interface ChainInfo {
   chainId: number;
   consentRegistry: string;
   auditLog: string;
+  fromBlock: number; // blocco del deploy: da qui partono le ricerche degli eventi
 }
 
 export interface Ledger {

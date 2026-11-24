@@ -27,7 +27,7 @@ const ABI_CONSENSI = [
 const FINALITA: Record<string, string> = { care: "Cura", research: "Ricerca", administration: "Amministrazione" };
 const MAX_GIORNI = 365; // come MAX_DURATION nel contratto
 
-type Rete = { chainId: number; consentRegistry: string; auditLog: string };
+type Rete = { chainId: number; consentRegistry: string; auditLog: string; fromBlock: number };
 type Consenso = {
   doctor: string;
   purpose: string;
@@ -168,8 +168,8 @@ export default function PannelloConsensi({ indirizzo, scheda }: { indirizzo: str
       const nuove: Record<string, Verifica> = {};
       for (const c of consensi) {
         const eventi = [
-          ...(await registro.queryFilter(registro.filters.ConsentGranted(c.consentId))),
-          ...(await registro.queryFilter(registro.filters.ConsentRevoked(c.consentId))),
+          ...(await registro.queryFilter(registro.filters.ConsentGranted(c.consentId), rete.fromBlock)),
+          ...(await registro.queryFilter(registro.filters.ConsentRevoked(c.consentId), rete.fromBlock)),
         ]
           .filter((e): e is EventLog => e instanceof EventLog)
           .sort((a, b) => a.blockNumber - b.blockNumber || a.index - b.index);
@@ -318,6 +318,7 @@ export default function PannelloConsensi({ indirizzo, scheda }: { indirizzo: str
       <div hidden={scheda !== "accessi"}>
         <RegistroAccessi
           auditLog={rete?.auditLog ?? null}
+          fromBlock={rete?.fromBlock ?? 0}
           provider={provider}
           consentIds={consensi.filter((c) => verifiche[c.consentId] === "ok").map((c) => c.consentId)}
           onVerificaConsensi={consensi.length > 0 && provider ? verifica : null}

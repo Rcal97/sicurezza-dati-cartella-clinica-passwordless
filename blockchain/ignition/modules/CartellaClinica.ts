@@ -4,11 +4,13 @@ import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 // Account 0: amministratore di entrambi i contratti e, in locale, anche responsabile della pausa.
 //            In produzione l'amministratore sarebbe un portafoglio multifirma (per esempio
 //            3 firme su 5) e la pausa spetterebbe a un responsabile della sicurezza.
-// Account 1: backend, che riceve solo i ruoli RECORDER (audit) e REGISTRAR (consensi):
-//            privilegio minimo, nessun ruolo di amministrazione o di pausa.
+// Backend: riceve solo i ruoli RECORDER (audit) e REGISTRAR (consensi), cioè privilegio
+//          minimo, nessun ruolo di amministrazione o di pausa. Il suo indirizzo è un parametro
+//          (ignition/parameters/<rete>.json): la chiave privata del backend resta sul suo server
+//          e Hardhat non la conosce. In locale è l'account 1 di Hardhat.
 export default buildModule("CartellaClinica", (m) => {
   const admin = m.getAccount(0);
-  const backend = m.getAccount(1);
+  const backend = m.getParameter<string>("backend");
 
   const consentRegistry = m.contract("ConsentRegistry", [admin], { from: admin });
   const auditLog = m.contract("AuditLog", [admin, consentRegistry], { from: admin });

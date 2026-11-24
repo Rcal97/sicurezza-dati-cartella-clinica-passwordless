@@ -35,7 +35,7 @@ export const archiveKeyFile = (): string =>
 
 // Collegamento alla blockchain: nodo, chiave del backend (ruolo RECORDER) e indirizzi dei contratti.
 export function ledgerConfig() {
-  const { CHAIN_RPC_URL, BACKEND_PRIVATE_KEY, CONSENT_REGISTRY_ADDRESS, AUDIT_LOG_ADDRESS } =
+  const { CHAIN_RPC_URL, BACKEND_PRIVATE_KEY, CONSENT_REGISTRY_ADDRESS, AUDIT_LOG_ADDRESS, CHAIN_FROM_BLOCK } =
     process.env;
   if (!BACKEND_PRIVATE_KEY || !CONSENT_REGISTRY_ADDRESS || !AUDIT_LOG_ADDRESS) {
     throw new Error("Variabili della blockchain mancanti: controlla il file .env");
@@ -45,5 +45,14 @@ export function ledgerConfig() {
     privateKey: BACKEND_PRIVATE_KEY,
     consentRegistry: CONSENT_REGISTRY_ADDRESS,
     auditLog: AUDIT_LOG_ADDRESS,
+    fromBlock: fromBlock(CHAIN_FROM_BLOCK),
   };
+}
+
+// Blocco in cui sono stati pubblicati i contratti: le ricerche degli eventi partono da lì
+// invece che dal blocco 0, che su una rete pubblica vorrebbe dire scorrere milioni di blocchi.
+function fromBlock(value: string | undefined): number {
+  if (value === undefined || value === "") return 0;
+  if (!/^\d+$/.test(value)) throw new Error("CHAIN_FROM_BLOCK deve essere un numero di blocco");
+  return Number(value);
 }

@@ -7,7 +7,9 @@ const { ethers, ignition } = await network.create();
 describe("Deploy (Ignition)", function () {
   it("collega l'audit al registro e dà al backend solo i ruoli RECORDER e REGISTRAR", async function () {
     const [admin, backend] = await ethers.getSigners();
-    const { consentRegistry, auditLog } = await ignition.deploy(CartellaClinica);
+    const { consentRegistry, auditLog } = await ignition.deploy(CartellaClinica, {
+      parameters: { CartellaClinica: { backend: backend.address } },
+    });
 
     expect(await auditLog.consentRegistry()).to.equal(await consentRegistry.getAddress());
     expect(await consentRegistry.defaultAdmin()).to.equal(admin.address);

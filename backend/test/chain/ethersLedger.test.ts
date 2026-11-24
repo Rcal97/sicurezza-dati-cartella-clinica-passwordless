@@ -39,6 +39,7 @@ describe("EthersLedger (blockchain locale)", () => {
     assert.equal(ledger.chain.chainId, 31337);
     assert.equal(ledger.chain.consentRegistry.toLowerCase(), cfg.consentRegistry.toLowerCase());
     assert.equal(ledger.chain.auditLog.toLowerCase(), cfg.auditLog.toLowerCase());
+    assert.equal(ledger.chain.fromBlock, cfg.fromBlock);
   });
 
   it("rifiuta un indirizzo dove non c'è un contratto", async () => {

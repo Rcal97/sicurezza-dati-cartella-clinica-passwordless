@@ -59,6 +59,7 @@ export interface LedgerConfig {
   privateKey: string;
   consentRegistry: string;
   auditLog: string;
+  fromBlock?: number;
 }
 
 export class EthersLedger implements Ledger {
@@ -98,6 +99,7 @@ export class EthersLedger implements Ledger {
         chainId: Number(chainId),
         consentRegistry: getAddress(cfg.consentRegistry),
         auditLog: getAddress(cfg.auditLog),
+        fromBlock: cfg.fromBlock ?? 0,
       },
     );
   }

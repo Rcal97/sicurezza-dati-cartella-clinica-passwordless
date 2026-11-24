@@ -46,6 +46,19 @@ Su Linux, MongoDB 8.x non si avvia con i kernel dalla 6.19 alla 7.0.13: serve un
 
 Per spegnere tutto: Ctrl+C nei terminali di frontend, backend e nodo Hardhat, poi `docker compose stop`.
 
+## Rete di prova Sepolia
+
+Sulla rete locale la catena si azzera a ogni riavvio del nodo; su Sepolia i contratti restano pubblicati e chiunque può controllare su Etherscan che contengano solo valori opachi.
+
+1. **Due account dedicati**, generati a caso e mai derivati da un wallet personale: l'amministratore (pubblica i contratti, assegna i ruoli) e il backend (registra consensi e accessi). Le chiavi private stanno in `secrets/sepolia-admin.key` e `secrets/sepolia-backend.key` (permessi 600, esclusi da Git).
+2. **ETH di prova** sull'indirizzo dell'amministratore, da un faucet di Sepolia.
+3. **Nodo RPC**: un endpoint HTTPS di un provider (per esempio Alchemy). L'indirizzo contiene una chiave API e va trattato come un segreto.
+4. **Portachiavi cifrato di Hardhat**, nella cartella `blockchain`: `npx hardhat keystore set SEPOLIA_RPC_URL` e `npx hardhat keystore set SEPOLIA_PRIVATE_KEY` (la chiave dell'amministratore). I valori restano cifrati con una password, fuori dal repository.
+5. **Indirizzo del backend** in `blockchain/ignition/parameters/sepolia.json` (è pubblico: riceve solo i ruoli REGISTRAR e RECORDER).
+6. **Deploy**: `npm run deploy:sepolia`. Poi `npm run ricarica:sepolia` trasferisce 0,02 ETH di prova dall'amministratore al backend, che paga le proprie transazioni.
+7. **Configurazione del backend** in `.env`: endpoint, chiave del backend, indirizzi dei contratti e blocco del deploy (`CHAIN_FROM_BLOCK`), secondo il modello in fondo a `.env.example`.
+8. In MetaMask il paziente usa la rete Sepolia; firma i consensi senza transazioni, quindi non gli servono ETH.
+
 ## Operazioni della struttura sanitaria
 
 Si eseguono dalla cartella `backend` e simulano gli uffici che identificano le persone.

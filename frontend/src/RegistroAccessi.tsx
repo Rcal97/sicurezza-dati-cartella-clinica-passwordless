@@ -55,6 +55,7 @@ function descrivi(v: Voce): string {
 //   devono esserci sulla catena accessi che l'elenco non mostra (completezza).
 export default function RegistroAccessi(props: {
   auditLog: string | null;
+  fromBlock: number; // blocco del deploy: le ricerche degli eventi partono da qui
   provider: BrowserProvider | null;
   consentIds: string[];
   onVerificaConsensi: (() => void) | null;
@@ -84,15 +85,15 @@ export default function RegistroAccessi(props: {
         numeri.length === 0
           ? []
           : [
-              ...(await audit.queryFilter(audit.filters.AccessRecorded(numeri))),
-              ...(await audit.queryFilter(audit.filters.EmergencyAccess(numeri))),
+              ...(await audit.queryFilter(audit.filters.AccessRecorded(numeri), props.fromBlock)),
+              ...(await audit.queryFilter(audit.filters.EmergencyAccess(numeri), props.fromBlock)),
             ];
       const sullaCatena = new Map<string, string>();
       for (const ev of eventi) {
         if (ev instanceof EventLog) sullaCatena.set(ev.args.entryId.toString(), String(ev.args.recordHash).toLowerCase());
       }
       const delPaziente =
-        props.consentIds.length === 0 ? [] : await audit.queryFilter(audit.filters.AccessRecorded(null, props.consentIds));
+        props.consentIds.length === 0 ? [] : await audit.queryFilter(audit.filters.AccessRecorded(null, props.consentIds), props.fromBlock);
       const registrati = delPaziente.filter((ev) => ev instanceof EventLog).map((ev) => (ev as EventLog).args.entryId.toString());
       const nuovi: Record<string, Esito> = {};
       for (const v of voci) {
