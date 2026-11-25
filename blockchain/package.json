@@ -7,7 +7,8 @@
     "node": "hardhat node",
     "deploy:local": "hardhat ignition deploy ignition/modules/CartellaClinica.ts --network localhost --parameters ignition/parameters/localhost.json --reset",
     "deploy:sepolia": "hardhat ignition deploy ignition/modules/CartellaClinica.ts --network sepolia --parameters ignition/parameters/sepolia.json",
-    "ricarica:sepolia": "hardhat run scripts/ricarica-backend.ts --network sepolia"
+    "ricarica:sepolia": "hardhat run scripts/ricarica-backend.ts --network sepolia",
+    "verifica:sepolia": "hardhat build --build-profile production && hardhat ignition verify chain-11155111 --network sepolia"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^4.2.2",

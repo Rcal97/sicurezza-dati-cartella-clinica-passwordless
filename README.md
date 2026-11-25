@@ -58,6 +58,7 @@ Sulla rete locale la catena si azzera a ogni riavvio del nodo; su Sepolia i cont
 6. **Deploy**: `npm run deploy:sepolia`. Poi `npm run ricarica:sepolia` trasferisce 0,02 ETH di prova dall'amministratore al backend, che paga le proprie transazioni.
 7. **Configurazione del backend** in `.env`: endpoint, chiave del backend, indirizzi dei contratti e blocco del deploy (`CHAIN_FROM_BLOCK`), secondo il modello in fondo a `.env.example`.
 8. In MetaMask il paziente usa la rete Sepolia; firma i consensi senza transazioni, quindi non gli servono ETH.
+9. **Verifica del sorgente** su Etherscan e Sourcify: `npx hardhat keystore set ETHERSCAN_API_KEY`, poi `npm run verifica:sepolia`. Lo script ricompila con il profilo `production` usato dal deploy, così il bytecode coincide con quello pubblicato.
 
 ## Operazioni della struttura sanitaria
 

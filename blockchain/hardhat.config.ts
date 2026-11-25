@@ -35,4 +35,15 @@ export default defineConfig({
       accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
     },
   },
+  // Pubblicazione del sorgente dei contratti sui block explorer (Etherscan, Sourcify):
+  // chiunque può confrontare il bytecode in esecuzione con il codice di questo repository.
+  verify: {
+    etherscan: {
+      apiKey: configVariable("ETHERSCAN_API_KEY"),
+    },
+    // Il servizio pubblico gratuito di Blockscout limita le richieste: bastano Etherscan e Sourcify.
+    blockscout: {
+      enabled: false,
+    },
+  },
 });
