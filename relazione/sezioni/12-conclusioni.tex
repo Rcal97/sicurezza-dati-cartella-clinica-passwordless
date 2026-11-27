@@ -7,5 +7,7 @@ I limiti principali sono tre. Su una blockchain pubblica i metadati degli access
   \item una rete \emph{permissioned} come Hyperledger Fabric, con politiche di approvazione tra più organizzazioni, preferibile in un'adozione reale (sezione~\ref{sec:fabric});
   \item l'abilitazione dei medici con prove a conoscenza zero e pseudonimi diversi per ogni rapporto di cura (sezione~\ref{sec:zkp});
   \item le chiavi dell'archivio in un HSM o in un ambiente di esecuzione fidato (TEE), e chiavi separate per paziente;
-  \item una nuova verifica con la passkey (\emph{step-up}) per le operazioni sensibili.
+  \item una nuova verifica con la passkey (\emph{step-up}) per le operazioni sensibili;
+  \item le misure del piano di trattamento dei rischi (sezione~\ref{sec:dpia}): più provider del nodo con una procedura di contingenza, un nodo della struttura per le verifiche del paziente, etichette HMAC al posto dei nomi utente nel database;
+  \item l'uso secondario dei dati per la ricerca (art.~89 GDPR, art.~110 del Codice), con un modulo di esportazione che renda i dati strutturati $k$-anonimi e $l$-diversi\cite{k-anonymity,l-diversity} e pubblichi le statistiche con la \emph{differential privacy}\cite{dwork-dp}.
 \end{itemize}

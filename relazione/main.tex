@@ -1,5 +1,5 @@
 % Relazione - Cartella clinica passwordless
-% Compilare con pdfLaTeX (default di Overleaf).
+% Compilare con pdfLaTeX e BibTeX (per esempio: latexmk -pdf main.tex).
 \documentclass[11pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -30,6 +30,7 @@
 \begin{abstract}
 L'accesso alle cartelle cliniche elettroniche si basa spesso su password, consensi non verificati e registri controllati da chi dovrebbe essere controllato. Questo progetto realizza il prototipo di una cartella clinica in cui pazienti e medici accedono con passkey FIDO2, il paziente concede e revoca il consenso per finalità su uno smart contract con il proprio wallet, e ogni accesso è registrato su blockchain prima della consegna dei dati. Sulla catena vanno solo pseudonimi e impronte; i referti restano fuori, cifrati con uno schema ibrido post-quantistico (ML-KEM-768 e X25519) e firmati con la passkey del medico. Il prototipo è stato sottoposto a una revisione di sicurezza e a campagne d'attacco ripetute, in cui nessun attacco del modello di minaccia è riuscito, e ne sono stati misurati i costi in gas, tempo e spazio. La relazione discute infine due estensioni: l'abilitazione dei medici con prove a conoscenza zero e l'uso di una blockchain \emph{permissioned}.
 \end{abstract}
+\newpage
 \tableofcontents
 \newpage
 
@@ -40,10 +41,14 @@ L'accesso alle cartelle cliniche elettroniche si basa spesso su password, consen
 \input{sezioni/05-consenso-audit-blockchain}
 \input{sezioni/06-protezione-dati}
 \input{sezioni/07-revisione-sicurezza}
-\input{sezioni/08-zero-knowledge}
-\input{sezioni/09-confronto-fabric}
-\input{sezioni/10-valutazione}
-\input{sezioni/11-conclusioni}
+\input{sezioni/08-conformita}
+\input{sezioni/09-zero-knowledge}
+\input{sezioni/10-confronto-fabric}
+\input{sezioni/11-valutazione}
+\input{sezioni/12-conclusioni}
+
+\appendix
+\input{sezioni/A-registro}
 
 \printbibliography
 \end{document}

@@ -1,0 +1,11 @@
+id,rischio,impatto,probabilita,inerente,controllo,residuo,livello inerente,livello residuo,residuo fuzzy,livello fuzzy
+R1,Accesso dall'esterno con credenziali rubate,4,3,12,0.8,2.4,alto,basso,5.16,medio
+R2,Consultazione da parte di un medico senza titolo,4,3,12,0.75,3.0,alto,basso,6.3,medio-alto
+R3,Furto del database o dei backup,4,2,8,0.7,2.4,medio-alto,basso,4.67,medio
+R4,Re-identificazione dai metadati sulla catena,3,3,9,0.667,3.0,alto,basso,6.52,medio-alto
+R5,Backend compromesso che legge senza registrare,4,2,8,0.375,5.0,medio-alto,medio,7.11,medio-alto
+R6,Alterazione o cancellazione del registro degli accessi,3,2,6,1.0,0.0,medio,trascurabile,2.53,basso
+R7,Perdita delle chiavi dell'archivio,4,2,8,0.667,2.67,medio-alto,basso,5.01,medio
+R8,Abuso dell'accesso d'emergenza,4,2,8,0.875,1.0,medio-alto,trascurabile,2.94,basso
+R9,Indirizzo IP del paziente esposto al provider RPC,2,3,6,0.333,4.0,medio,medio-basso,6.52,medio-alto
+R10,Catena o provider non disponibili: cartelle non consultabili,3,2,6,0.167,5.0,medio,medio,7.4,medio-alto

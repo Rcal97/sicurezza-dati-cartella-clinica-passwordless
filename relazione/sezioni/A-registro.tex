@@ -1,0 +1,23 @@
+\section{Registro delle attività di trattamento}\label{app:registro}
+
+Il registro segue i contenuti dell'art.~30(1) GDPR. Titolare è la struttura sanitaria, con il proprio responsabile della protezione dei dati. Le misure di sicurezza, comuni a tutti i trattamenti, sono descritte nelle sezioni~\ref{sec:fido2}--\ref{sec:dati} e riassunte nella sezione~\ref{sec:conformita}. Per nessun trattamento sono previsti trasferimenti verso paesi terzi, salvo quanto osservato sotto per la blockchain pubblica e per il nodo usato dal wallet del paziente.
+
+\begin{table}[H]
+\centering\scriptsize
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}p{.14\textwidth} p{.2\textwidth} p{.2\textwidth} p{.18\textwidth} p{.2\textwidth}@{}}
+\toprule
+Trattamento & Interessati e dati & Destinatari & Conservazione & Note\\
+\midrule
+T1 Cartella clinica e referti & Pazienti: identificativi, referti (titolo e testo cifrati), firme dei medici. Medici: identificativi, chiavi pubbliche delle passkey & Medici autorizzati dal consenso; laboratorio che carica i referti; fornitore dell'infrastruttura (art.~28) & Secondo gli obblighi di conservazione della documentazione sanitaria & Rettifica per integrazione, senza cancellare i referti precedenti\\
+T2 Consensi alla consultazione & Pazienti: indirizzo del wallet, medico, finalità, scadenza, versione dell'informativa (ricevuta cifrata); ancora e impronta sulla catena & Backend; sulla catena solo valori opachi & Ricevute per il tempo necessario a dimostrare la liceità degli accessi; sulla catena senza limite, come pseudonimi & Revoca in ogni momento; la cancellazione del segreto del paziente rende le ancore non riconducibili\\
+T3 Accesso d'emergenza & Pazienti e personale abilitato: identificativi, motivazione (cifrata) & RPD per la revisione periodica & Come il registro degli accessi & Evento distinto, visibile al paziente\\
+T4 Registro degli accessi & Pazienti e medici: chi, quando, per quale finalità, esito (cifrati); sulla catena solo numero, ancora, esito, impronta & Paziente interessato; RPD; autorità su richiesta & Dettagli cifrati per il periodo fissato nel piano di protezione dei dati; sulla catena senza limite & Verificabile dal paziente nel proprio browser\\
+T5 Autenticazione e account & Utenti: nome utente, ruolo, chiavi pubbliche e contatori delle passkey, sessioni (solo come hash), indirizzo del wallet del paziente & Nessuno oltre al titolare e al fornitore dell'infrastruttura & Fino alla cancellazione dell'account; sessioni con durata massima & Nome utente cancellato conservato solo come impronta, per impedirne il riuso\\
+T6 Consultazione per ricerca & Come T1, per i soli pazienti che hanno firmato il consenso per la ricerca & Medici o ricercatori autorizzati dal consenso & Fino alla scadenza o alla revoca del consenso & Estensione prevista: esportazione con anonimizzazione (sezione~\ref{sec:conclusioni})\\
+\bottomrule
+\end{tabular}
+\caption{Registro delle attività di trattamento.}\label{tab:registro}
+\end{table}
+
+\paragraph{Blockchain pubblica e nodi.} I nodi di una blockchain pubblica si trovano anche fuori dall'Unione europea, e i dati scritti sulla catena vi sono replicati. Per questo sulla catena vanno solo pseudonimi con chiave, impronte ed esiti, che non sono riconducibili a una persona senza le informazioni custodite dal titolare (sezione~\ref{sec:pseudonimi}), come indicano le linee guida europee\cite{edpb-blockchain}. Il nodo con cui il wallet del paziente verifica il registro riceve l'indirizzo di rete del paziente e le ancore cercate: è il rischio R9, che il piano di trattamento affronta con un nodo della struttura ospitato nell'Unione.
